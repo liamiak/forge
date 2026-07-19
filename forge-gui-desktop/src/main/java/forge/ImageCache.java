@@ -26,6 +26,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -34,6 +35,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.swing.SwingUtilities;
 
@@ -55,6 +57,7 @@ import forge.gui.FThreads;
 import forge.gui.GuiBase;
 import forge.item.IPaperCard;
 import forge.item.InventoryItem;
+import forge.item.PaperCard;
 import forge.localinstance.properties.ForgeConstants;
 import forge.localinstance.properties.ForgePreferences;
 import forge.localinstance.properties.ForgePreferences.FPref;
@@ -148,10 +151,47 @@ public class ImageCache {
     }
 
     public static void clear() {
+        preloadGeneration.incrementAndGet(); //cancel any in-flight preloading
         _CACHE.invalidateAll();
         _missingIconKeys.clear();
         _placeholderKeys.clear();
         ImageKeys.clearMissingCards();
+    }
+
+    private static final AtomicInteger preloadGeneration = new AtomicInteger();
+
+    /**
+     * Decodes the given cards' images into the cache on a single background thread, so
+     * views that show many cards at once (e.g. searching a large library) find them
+     * ready instead of decoding hundreds of images on first open. Best-effort: entries
+     * are softly referenced and may be reclaimed under memory pressure, and preloading
+     * stops when the cache is cleared.
+     */
+    public static void preloadOriginals(final Collection<PaperCard> cards) {
+        final int generation = preloadGeneration.get();
+        ThreadUtil.getServicePool().execute(() -> {
+            for (final PaperCard pc : cards) {
+                if (generation != preloadGeneration.get()) {
+                    return;
+                }
+                try {
+                    final String key = pc.getCardImageKey();
+                    if (StringUtils.isEmpty(key) || _CACHE.getIfPresent(key) != null) {
+                        continue;
+                    }
+                    final File file = ImageKeys.getImageFile(key);
+                    if (file == null || !file.isFile()) {
+                        continue;
+                    }
+                    final BufferedImage image = ImageIO.read(file);
+                    if (image != null && generation == preloadGeneration.get()) {
+                        _CACHE.put(key, image);
+                    }
+                } catch (final Exception e) {
+                    //best-effort warming; skip any card whose image fails to load
+                }
+            }
+        });
     }
 
     /**

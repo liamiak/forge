@@ -9,6 +9,8 @@ import com.google.common.eventbus.Subscribe;
 import forge.LobbyPlayer;
 import forge.StaticData;
 import forge.ai.AiProfileUtil;
+import forge.deck.Deck;
+import forge.item.PaperCard;
 import forge.game.*;
 import forge.game.event.GameEvent;
 import forge.game.event.GameEventSubgameEnd;
@@ -142,6 +144,21 @@ public class HostedMatch {
         this.match.subscribeToEvents(HapticEngine.instance);
         this.match.subscribeToEvents(visitor);
         this.matchPlaylist = playlist;
+
+        // Warm the image cache for the players' decks in the background, so zone views
+        // that show many cards at once (e.g. searching a large library) have their
+        // images ready instead of decoding them all on first open.
+        final Set<PaperCard> deckCards = new LinkedHashSet<>();
+        for (final RegisteredPlayer rp : sortedPlayers) {
+            final Deck deck = rp.getDeck();
+            if (deck != null) {
+                for (final Entry<PaperCard, Integer> entry : deck.getAllCardsInASinglePool()) {
+                    deckCards.add(entry.getKey());
+                }
+            }
+        }
+        GuiBase.getInterface().preloadCardImages(deckCards);
+
         startGame();
     }
 
