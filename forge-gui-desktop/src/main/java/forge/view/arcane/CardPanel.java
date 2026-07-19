@@ -194,21 +194,37 @@ public class CardPanel extends SkinnedPanel implements CardContainer, IDisposabl
         add(imagePanel);
         addComponentListener(new ComponentAdapter() {
             //only the image depends on the panel size; the text overlays are
-            //maintained by setCard and don't need to be rebuilt on every resize
+            //maintained by setCard and don't need to be rebuilt on every resize.
+            //An animation panel resizes every frame - keep its existing image and
+            //let ScaledImagePanel scale it rather than re-requesting per frame.
             @Override
             public void componentShown(final ComponentEvent e) {
-                CardPanel.this.updateImage();
+                onSizeDependentImageUpdate();
             }
             @Override
             public void componentResized(final ComponentEvent e) {
+                onSizeDependentImageUpdate();
+            }
+            private void onSizeDependentImageUpdate() {
+                if (isAnimationPanel && imagePanel != null && imagePanel.hasImage()) {
+                    return;
+                }
                 CardPanel.this.updateImage();
             }
         });
     }
 
+    // the overlay fonts are identical for every panel - derive them once instead of
+    // four times per panel construction (large zone views create hundreds of panels)
+    private static final Map<Float, Font> overlayFonts = new HashMap<>();
+
+    private Font overlayFont(final float size) {
+        return overlayFonts.computeIfAbsent(size, s -> getFont().deriveFont(Font.BOLD, s));
+    }
+
     private void createCardNameOverlay() {
         titleText = new OutlinedLabel();
-        titleText.setFont(getFont().deriveFont(Font.BOLD, 13f));
+        titleText.setFont(overlayFont(13f));
         titleText.setForeground(Color.white);
         titleText.setGlow(Color.black);
         titleText.setWrap(true);
@@ -218,14 +234,14 @@ public class CardPanel extends SkinnedPanel implements CardContainer, IDisposabl
     private void createPTOverlay() {
         // Power/Toughness
         ptText = new OutlinedLabel();
-        ptText.setFont(getFont().deriveFont(Font.BOLD, 13f));
+        ptText.setFont(overlayFont(13f));
         ptText.setForeground(Color.white);
         ptText.setGlow(Color.black);
         add(ptText);
 
         // Damage
         damageText = new OutlinedLabel();
-        damageText.setFont(getFont().deriveFont(Font.BOLD, 15f));
+        damageText.setFont(overlayFont(15f));
         damageText.setForeground(new Color(160,0,0));
         damageText.setGlow(Color.white);
         add(damageText);
@@ -233,7 +249,7 @@ public class CardPanel extends SkinnedPanel implements CardContainer, IDisposabl
 
     private void createCardIdOverlay() {
         cardIdText = new OutlinedLabel();
-        cardIdText.setFont(getFont().deriveFont(Font.BOLD, 11f));
+        cardIdText.setFont(overlayFont(11f));
         cardIdText.setForeground(Color.LIGHT_GRAY);
         cardIdText.setGlow(Color.black);
         add(cardIdText);

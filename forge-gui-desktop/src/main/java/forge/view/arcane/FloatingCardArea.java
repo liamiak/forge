@@ -33,6 +33,7 @@ import javax.swing.Timer;
 
 import forge.Singletons;
 import forge.game.card.CardView;
+import forge.gui.FThreads;
 import forge.gui.framework.SDisplayUtil;
 import forge.localinstance.properties.ForgePreferences;
 import forge.localinstance.properties.ForgePreferences.FPref;
@@ -188,6 +189,7 @@ public abstract class FloatingCardArea extends CardArea {
     private boolean refreshPending;
 
     protected void refresh() {
+        FThreads.assertExecutedByEdt(true);
         if (!getWindow().isVisible()) { return; } //don't refresh while window hidden
         //coalesce bursts of refresh calls (e.g. many cards changing zones at once) into
         //a single rebuild - rebuilding a large zone view is expensive
@@ -199,6 +201,16 @@ public abstract class FloatingCardArea extends CardArea {
                 doRefresh();
             }
         });
+    }
+
+    /** Runs a coalesced refresh immediately, for callers that need the panels current now. */
+    protected void flushPendingRefresh() {
+        if (refreshPending) {
+            refreshPending = false; //the queued invokeLater becomes a no-op
+            if (getWindow().isVisible()) {
+                doRefresh();
+            }
+        }
     }
 
     protected void doRefresh() {
