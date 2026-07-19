@@ -305,23 +305,16 @@ public class ImageCache {
         }
         pendingLoads.put(resizedKey, callbacks);
 
-        // Resolve the backing file on the EDT (ImageKeys' caches are not thread-safe).
-        File file = null;
-        String fileKey = null;
-        boolean plainFile = false;
+        // Resolve the image key on the EDT (card database lookups); the disk probing and
+        // decode happen on the worker.
+        ResolvedImageKey resolved = null;
         if (!key.equals(ImageKeys.getTokenKey(ImageKeys.HIDDEN_CARD))) {
-            final ResolvedImageKey resolved = resolveImageKey(key);
-            if (resolved.fileKey != null && !resolved.useArtCrop) {
-                fileKey = resolved.fileKey;
-                file = ImageKeys.getImageFile(fileKey);
-                plainFile = file != null && file.isFile();
-            }
+            resolved = resolveImageKey(key);
         }
 
-        if (!plainFile) {
-            // Sleeve backs, art crop mode, cards with no image definition, and missing
-            // files (rendered as placeholders): run the existing synchronous path, one
-            // card per EDT event.
+        if (resolved == null || resolved.fileKey == null || resolved.useArtCrop) {
+            // Sleeve backs, art crop mode, and cards with no image definition: run the
+            // existing synchronous path, one card per EDT event.
             SwingUtilities.invokeLater(() -> {
                 scaleImage(key, width, height, true, card);
                 finishAsyncLoad(resizedKey);
@@ -329,8 +322,7 @@ public class ImageCache {
             return;
         }
 
-        final File imageFile = file;
-        final String originalKey = fileKey;
+        final String originalKey = resolved.fileKey;
         final String setCode = originalKey.split("/")[0].trim().toUpperCase();
         final boolean noBorder = !isPreferenceEnabled(ForgePreferences.FPref.UI_RENDER_BLACK_BORDERS);
         final boolean allowScaleLarger = FModel.getPreferences().getPrefBoolean(FPref.UI_SCALE_LARGER);
@@ -339,7 +331,12 @@ public class ImageCache {
             BufferedImage scaled = null;
             try {
                 if (decoded == null) {
-                    decoded = ImageIO.read(imageFile);
+                    // ImageKeys.getImageFile is synchronized; keeping the (slow, many
+                    // File.exists probes) resolution here spares the EDT from it.
+                    final File imageFile = ImageKeys.getImageFile(originalKey);
+                    if (imageFile != null && imageFile.isFile()) {
+                        decoded = ImageIO.read(imageFile);
+                    }
                 }
                 if (decoded != null) {
                     scaled = resample(postProcessCardImage(decoded, setCode, noBorder), width, height, allowScaleLarger);
@@ -355,7 +352,8 @@ public class ImageCache {
                     _placeholderKeys.remove(resizedKey);
                     _CACHE.put(resizedKey, result);
                 } else {
-                    // decode failed - let the synchronous path produce its fallback
+                    // missing file or failed decode - let the synchronous path produce
+                    // its fallback (placeholder render, cached by scaleImage)
                     scaleImage(key, width, height, true, card);
                 }
                 finishAsyncLoad(resizedKey);

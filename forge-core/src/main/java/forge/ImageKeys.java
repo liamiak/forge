@@ -93,13 +93,16 @@ public final class ImageKeys {
 
     private static final Map<String, File> cachedCards = new HashMap<>(50000);
     public static HashSet<String> missingCards = new HashSet<>();
-    public static void clearMissingCards() {
+    // The lookup caches (cachedCards, cachedContent, editionImageLookup, missingCards) are
+    // plain collections; the methods below are synchronized so background image loaders can
+    // resolve files while the EDT does the same.
+    public static synchronized void clearMissingCards() {
         missingCards.clear();
     }
-    public static File getCachedCardsFile(String key) {
+    public static synchronized File getCachedCardsFile(String key) {
         return cachedCards.get(key);
     }
-    public static File getImageFile(String key) {
+    public static synchronized File getImageFile(String key) {
         if (StringUtils.isEmpty(key))
             return null;
 
@@ -412,7 +415,7 @@ public final class ImageKeys {
     public static boolean hasImage(PaperCard pc) {
         return hasImage(pc, false);
     }
-    public static boolean hasImage(PaperCard pc, boolean update) {
+    public static synchronized boolean hasImage(PaperCard pc, boolean update) {
         Boolean editionHasImage = editionImageLookup.get(pc.getEdition());
         if (editionHasImage == null) {
             String setFolder = getSetFolder(pc.getEdition());
