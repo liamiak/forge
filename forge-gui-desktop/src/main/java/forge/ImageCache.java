@@ -24,12 +24,18 @@ import java.awt.RenderingHints;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+
+import javax.swing.SwingUtilities;
 
 import javax.imageio.ImageIO;
 
@@ -59,6 +65,7 @@ import forge.toolbox.FSkin.SkinIcon;
 import forge.toolbox.imaging.FCardImageRenderer;
 import forge.util.ImageUtil;
 import forge.util.TextUtil;
+import forge.util.ThreadUtil;
 
 /**
  * This class stores ALL card images in a cache with soft values. this means
@@ -177,16 +184,6 @@ public class ImageCache {
     /**
      * retrieve an image from the cache.  returns null if the image is not found in the cache
      * and cannot be loaded from disk.  pass -1 for width and/or height to avoid resizing in that dimension.
-     * Same as getImage() but returns null if the image is not available, instead of a default image.
-     */
-    public static BufferedImage getImageNoDefault(final CardView card, final Iterable<PlayerView> viewers, final int width, final int height) {
-        final String key = card.getCurrentState().getImageKey(viewers);
-        return scaleImage(key, width, height, false, card);
-    }
-
-    /**
-     * retrieve an image from the cache.  returns null if the image is not found in the cache
-     * and cannot be loaded from disk.  pass -1 for width and/or height to avoid resizing in that dimension.
      */
     public static BufferedImage getImage(InventoryItem ii, int width, int height) {
         return getImage(ii, width, height, false);
@@ -237,6 +234,144 @@ public class ImageCache {
         return String.format("__SLEEVE_%d__#%dx%d", sleeveIndexOf(cardView), width, height);
     }
 
+    private static String resizedKeyFor(final String key, final CardView cardView, final int width, final int height) {
+        if (key.equals(ImageKeys.getTokenKey(ImageKeys.HIDDEN_CARD))) {
+            return hiddenSleeveCacheKey(cardView, width, height);
+        }
+        return String.format("%s#%dx%d", key, width, height);
+    }
+
+    // ========== Asynchronous loading ==========
+    //
+    // Decoding and resampling a card image takes tens of milliseconds; opening a zone view
+    // of a large library does it hundreds of times, which used to freeze the EDT for
+    // seconds. The pipeline below keeps everything that touches shared Forge state on the
+    // EDT (key/file resolution, placeholder rendering, cache bookkeeping) and moves only
+    // pure image work (ImageIO decode, corner rounding, resampling) to background threads.
+
+    // accessed from the EDT only
+    private static final Map<String, List<Runnable>> pendingLoads = new HashMap<>();
+
+    /**
+     * Cache-only lookup: returns the scaled image if already cached (possibly a cached
+     * placeholder render), or null without doing any loading.
+     */
+    public static BufferedImage getCachedImage(final CardView card, final Iterable<PlayerView> viewers, final int width, final int height) {
+        if (!isSupportedImageSize(width, height)) {
+            return null;
+        }
+        final String key = card.getCurrentState().getImageKey(viewers);
+        if (StringUtils.isEmpty(key)) {
+            return null;
+        }
+        return _CACHE.getIfPresent(resizedKeyFor(key, card, width, height));
+    }
+
+    /** Returns true if the cached entry for this card/size is a placeholder render (real image still missing). */
+    public static boolean isPlaceholderCached(final CardView card, final Iterable<PlayerView> viewers, final int width, final int height) {
+        final String key = card.getCurrentState().getImageKey(viewers);
+        return !StringUtils.isEmpty(key) && _placeholderKeys.contains(resizedKeyFor(key, card, width, height));
+    }
+
+    /**
+     * Loads and caches the scaled image for this card off the EDT where possible, then runs
+     * onDone on the EDT. Sleeves, art crops and missing images (placeholder renders) fall
+     * back to the synchronous path, executed one card per EDT event so the UI stays
+     * responsive. Must be called from the EDT.
+     */
+    public static void loadImageAsync(final CardView card, final Iterable<PlayerView> viewers, final int width, final int height, final Runnable onDone) {
+        FThreads.assertExecutedByEdt(true);
+        final String key = card.getCurrentState().getImageKey(viewers);
+        if (StringUtils.isEmpty(key) || !isSupportedImageSize(width, height)) {
+            return;
+        }
+        final String resizedKey = resizedKeyFor(key, card, width, height);
+        if (_CACHE.getIfPresent(resizedKey) != null) {
+            if (onDone != null) {
+                onDone.run();
+            }
+            return;
+        }
+        List<Runnable> callbacks = pendingLoads.get(resizedKey);
+        if (callbacks != null) { //load already in flight - just register the callback
+            if (onDone != null) {
+                callbacks.add(onDone);
+            }
+            return;
+        }
+        callbacks = new ArrayList<>(1);
+        if (onDone != null) {
+            callbacks.add(onDone);
+        }
+        pendingLoads.put(resizedKey, callbacks);
+
+        // Resolve the backing file on the EDT (ImageKeys' caches are not thread-safe).
+        File file = null;
+        String fileKey = null;
+        boolean plainFile = false;
+        if (!key.equals(ImageKeys.getTokenKey(ImageKeys.HIDDEN_CARD))) {
+            final ResolvedImageKey resolved = resolveImageKey(key);
+            if (resolved.fileKey != null && !resolved.useArtCrop) {
+                fileKey = resolved.fileKey;
+                file = ImageKeys.getImageFile(fileKey);
+                plainFile = file != null && file.isFile();
+            }
+        }
+
+        if (!plainFile) {
+            // Sleeve backs, art crop mode, cards with no image definition, and missing
+            // files (rendered as placeholders): run the existing synchronous path, one
+            // card per EDT event.
+            SwingUtilities.invokeLater(() -> {
+                scaleImage(key, width, height, true, card);
+                finishAsyncLoad(resizedKey);
+            });
+            return;
+        }
+
+        final File imageFile = file;
+        final String originalKey = fileKey;
+        final String setCode = originalKey.split("/")[0].trim().toUpperCase();
+        final boolean noBorder = !isPreferenceEnabled(ForgePreferences.FPref.UI_RENDER_BLACK_BORDERS);
+        final boolean allowScaleLarger = FModel.getPreferences().getPrefBoolean(FPref.UI_SCALE_LARGER);
+        ThreadUtil.getServicePool().execute(() -> {
+            BufferedImage decoded = _CACHE.getIfPresent(originalKey);
+            BufferedImage scaled = null;
+            try {
+                if (decoded == null) {
+                    decoded = ImageIO.read(imageFile);
+                }
+                if (decoded != null) {
+                    scaled = resample(postProcessCardImage(decoded, setCode, noBorder), width, height, allowScaleLarger);
+                }
+            } catch (final Exception e) {
+                e.printStackTrace();
+            }
+            final BufferedImage original = decoded;
+            final BufferedImage result = scaled;
+            SwingUtilities.invokeLater(() -> {
+                if (result != null) {
+                    _CACHE.put(originalKey, original);
+                    _placeholderKeys.remove(resizedKey);
+                    _CACHE.put(resizedKey, result);
+                } else {
+                    // decode failed - let the synchronous path produce its fallback
+                    scaleImage(key, width, height, true, card);
+                }
+                finishAsyncLoad(resizedKey);
+            });
+        });
+    }
+
+    private static void finishAsyncLoad(final String resizedKey) {
+        final List<Runnable> callbacks = pendingLoads.remove(resizedKey);
+        if (callbacks != null) {
+            for (final Runnable callback : callbacks) {
+                callback.run();
+            }
+        }
+    }
+
     // return the pair of image and a flag to indicate if it is a placeholder image.
     private static Pair<BufferedImage, Boolean> getOriginalImageInternal(String imageKey, boolean useDefaultIfNotFound, CardView cardView) {
         if (null == imageKey) {
@@ -252,51 +387,15 @@ public class ImageCache {
             }
         }
 
-        IPaperCard ipc = null;
-        boolean altState = imageKey.endsWith(ImageKeys.BACKFACE_POSTFIX);
-        String specColor = "";
-        if (imageKey.endsWith(ImageKeys.SPECFACE_W)) {
-            specColor = "white";
-        } else if (imageKey.endsWith(ImageKeys.SPECFACE_U)) {
-            specColor = "blue";
-        } else if (imageKey.endsWith(ImageKeys.SPECFACE_B)) {
-            specColor = "black";
-        } else if (imageKey.endsWith(ImageKeys.SPECFACE_R)) {
-            specColor = "red";
-        } else if (imageKey.endsWith(ImageKeys.SPECFACE_G)) {
-            specColor = "green";
+        final ResolvedImageKey resolved = resolveImageKey(imageKey);
+        if (resolved.fileKey == null) {
+            return Pair.of(_defaultImage, true);
         }
-        if (altState)
-            imageKey = imageKey.substring(0, imageKey.length() - ImageKeys.BACKFACE_POSTFIX.length());
-        if (!specColor.isEmpty())
-            imageKey = imageKey.substring(0, imageKey.length() - ImageKeys.SPECFACE_W.length());
-        if (imageKey.startsWith(ImageKeys.CARD_PREFIX)) {
-            ipc = ImageUtil.getPaperCardFromImageKey(imageKey);
-            if (ipc != null) {
-                if (altState) {
-                    imageKey = ipc.getCardAltImageKey();
-                } else if (!specColor.isEmpty()) {
-                    imageKey = ImageUtil.getImageKey(ipc, specColor, true);
-                } else {
-                    imageKey = ipc.getCardImageKey();
-                }
-                if (StringUtils.isBlank(imageKey))
-                    return Pair.of(_defaultImage, true);
-            }
-        }
-
-        // Replace .full to .artcrop if art crop is preferred
-        // Only allow use art if the artist info is available
-        boolean useArtCrop = "Crop".equals(FModel.getPreferences().getPref(ForgePreferences.FPref.UI_CARD_ART_FORMAT))
-            && ipc != null && !ipc.getArtist().isEmpty();
-        String originalKey = imageKey;
-        if (useArtCrop) {
-            if (ipc.getRules().getSplitType() == CardSplitType.Flip) {
-                // Art crop will always use front face as image key for flip cards
-                imageKey = ipc.getCardImageKey();
-            }
-            imageKey = TextUtil.fastReplace(imageKey, ".full", ".artcrop");
-        }
+        final IPaperCard ipc = resolved.ipc;
+        final boolean altState = resolved.altState;
+        final boolean useArtCrop = resolved.useArtCrop;
+        final String originalKey = resolved.originalKey;
+        imageKey = resolved.fileKey;
 
         // Load from file and add to cache if not found in cache initially.
         BufferedImage original = getImage(imageKey);
@@ -317,45 +416,7 @@ public class ImageCache {
         boolean isPlaceholder = (original == null) && fetcherEnabled;
         String setCode = imageKey.split("/")[0].trim().toUpperCase();
 
-        // If the user has indicated that they prefer Forge NOT render a black border, round the image corners
-        // to account for JPEG images that don't have a transparency.
-        if (original != null && noBorder) {
-            // use a quadratic equation to calculate the needed radius from an image dimension
-            int radius;
-            float width = original.getWidth();
-            if (setCode.equals("A")) {  // Alpha
-                // radius = 100; // 745 x 1040
-                // radius = 68; // 488 x 680
-                // radius = 25; // 146 x 204
-                radius = (int)(-107.0 *(width * width) / 52648506.0 + 743043.0 * width / 5849834.0 + 171067480.0 / 26324253.0);
-            } else if (setCode.equals("ME2") ||     // Masters Edition II
-                    setCode.equals("ME3") ||        // Masters Edition III
-                    setCode.equals("ME4") ||        // Masters Edition IV
-                    setCode.equals("TD0") ||        // Commander Theme Decks
-                    setCode.equals("TD1")           // Magic Online Deck Series
-                    ) {
-                // radius = 77; // 745 x 1040
-                // radius = 52; // 488 x 680
-                // radius = 19; // 146 x 204
-                radius = (int)(23.0 * (width * width) / 17549502.0 + 559597.0 * width /5849834.0 + 43923392.0 / 8774751.0);
-            } else {
-                // radius = 65; // 745 x 1040
-                // radius = 45; // 488 x 680
-                // radius = 15; // 146 x 204
-                radius = (int)(-145.0 * (width * width) / 8774751.0 + 287215.0 * width / 2924917.0 + 8911915.0 / 8774751.0);
-            }
-            //System.out.println(setCode + " - " + original.getWidth() + " - " + radius);
-            original = makeRoundedCorner(original, radius);
-        }
-
-        // if image has white corners, get try to crop it out
-        if (original != null && isWhite(FSkin.getColorFromPixel(original.getRGB(0, 0)))) {
-            if (!isWhiteBorderSet(setCode)) {
-                int xSpacing = original.getWidth() / 40;
-                int ySpacing = original.getHeight() / 57;
-                original = original.getSubimage(xSpacing, ySpacing, original.getWidth() - (2* xSpacing), original.getHeight() - (2* ySpacing));
-            }
-        }
+        original = postProcessCardImage(original, setCode, noBorder);
 
         // No image file exists for the given key so optionally associate with
         // a default "not available" image, however do not add it to the cache,
@@ -387,6 +448,138 @@ public class ImageCache {
         return Pair.of(original, isPlaceholder);
     }
 
+    private static final class ResolvedImageKey {
+        final String fileKey;      // key used to load the image file; null if the card defines no image
+        final String originalKey;  // pre-artcrop key, used for full-image cache lookups in crop mode
+        final IPaperCard ipc;
+        final boolean altState;
+        final boolean useArtCrop;
+
+        ResolvedImageKey(final String fileKey, final String originalKey, final IPaperCard ipc, final boolean altState, final boolean useArtCrop) {
+            this.fileKey = fileKey;
+            this.originalKey = originalKey;
+            this.ipc = ipc;
+            this.altState = altState;
+            this.useArtCrop = useArtCrop;
+        }
+    }
+
+    private static ResolvedImageKey resolveImageKey(String imageKey) {
+        IPaperCard ipc = null;
+        boolean altState = imageKey.endsWith(ImageKeys.BACKFACE_POSTFIX);
+        String specColor = "";
+        if (imageKey.endsWith(ImageKeys.SPECFACE_W)) {
+            specColor = "white";
+        } else if (imageKey.endsWith(ImageKeys.SPECFACE_U)) {
+            specColor = "blue";
+        } else if (imageKey.endsWith(ImageKeys.SPECFACE_B)) {
+            specColor = "black";
+        } else if (imageKey.endsWith(ImageKeys.SPECFACE_R)) {
+            specColor = "red";
+        } else if (imageKey.endsWith(ImageKeys.SPECFACE_G)) {
+            specColor = "green";
+        }
+        if (altState)
+            imageKey = imageKey.substring(0, imageKey.length() - ImageKeys.BACKFACE_POSTFIX.length());
+        if (!specColor.isEmpty())
+            imageKey = imageKey.substring(0, imageKey.length() - ImageKeys.SPECFACE_W.length());
+        if (imageKey.startsWith(ImageKeys.CARD_PREFIX)) {
+            ipc = ImageUtil.getPaperCardFromImageKey(imageKey);
+            if (ipc != null) {
+                if (altState) {
+                    imageKey = ipc.getCardAltImageKey();
+                } else if (!specColor.isEmpty()) {
+                    imageKey = ImageUtil.getImageKey(ipc, specColor, true);
+                } else {
+                    imageKey = ipc.getCardImageKey();
+                }
+                if (StringUtils.isBlank(imageKey))
+                    return new ResolvedImageKey(null, null, ipc, altState, false);
+            }
+        }
+
+        // Replace .full to .artcrop if art crop is preferred
+        // Only allow use art if the artist info is available
+        boolean useArtCrop = "Crop".equals(FModel.getPreferences().getPref(ForgePreferences.FPref.UI_CARD_ART_FORMAT))
+            && ipc != null && !ipc.getArtist().isEmpty();
+        String originalKey = imageKey;
+        if (useArtCrop) {
+            if (ipc.getRules().getSplitType() == CardSplitType.Flip) {
+                // Art crop will always use front face as image key for flip cards
+                imageKey = ipc.getCardImageKey();
+            }
+            imageKey = TextUtil.fastReplace(imageKey, ".full", ".artcrop");
+        }
+        return new ResolvedImageKey(imageKey, originalKey, ipc, altState, useArtCrop);
+    }
+
+    /**
+     * Best-fit scales the image into (width x height) retaining aspect ratio; -1 skips
+     * that dimension. Pure image work - safe to run off the EDT.
+     */
+    private static BufferedImage resample(final BufferedImage original, final int width, final int height, final boolean allowScaleLarger) {
+        double scaleX = (-1 == width ? 1 : (double)width / original.getWidth());
+        double scaleY = (-1 == height? 1 : (double)height / original.getHeight());
+        double bestFitScale = Math.min(scaleX, scaleY);
+        if ((bestFitScale > 1) && !allowScaleLarger) {
+            bestFitScale = 1;
+        }
+        if (1 == bestFitScale) {
+            return original;
+        }
+        int destWidth  = (int)(original.getWidth()  * bestFitScale);
+        int destHeight = (int)(original.getHeight() * bestFitScale);
+
+        ResampleOp resampler = new ResampleOp(destWidth, destHeight);
+        return resampler.filter(original, null);
+    }
+
+    /**
+     * Rounds corners / crops white borders as the display preferences dictate. Pure image
+     * work on the passed instance - safe to run off the EDT.
+     */
+    private static BufferedImage postProcessCardImage(BufferedImage original, final String setCode, final boolean noBorder) {
+        // If the user has indicated that they prefer Forge NOT render a black border, round the image corners
+        // to account for JPEG images that don't have a transparency.
+        if (original != null && noBorder) {
+            // use a quadratic equation to calculate the needed radius from an image dimension
+            int radius;
+            float width = original.getWidth();
+            if (setCode.equals("A")) {  // Alpha
+                // radius = 100; // 745 x 1040
+                // radius = 68; // 488 x 680
+                // radius = 25; // 146 x 204
+                radius = (int)(-107.0 *(width * width) / 52648506.0 + 743043.0 * width / 5849834.0 + 171067480.0 / 26324253.0);
+            } else if (setCode.equals("ME2") ||     // Masters Edition II
+                    setCode.equals("ME3") ||        // Masters Edition III
+                    setCode.equals("ME4") ||        // Masters Edition IV
+                    setCode.equals("TD0") ||        // Commander Theme Decks
+                    setCode.equals("TD1")           // Magic Online Deck Series
+                    ) {
+                // radius = 77; // 745 x 1040
+                // radius = 52; // 488 x 680
+                // radius = 19; // 146 x 204
+                radius = (int)(23.0 * (width * width) / 17549502.0 + 559597.0 * width /5849834.0 + 43923392.0 / 8774751.0);
+            } else {
+                // radius = 65; // 745 x 1040
+                // radius = 45; // 488 x 680
+                // radius = 15; // 146 x 204
+                radius = (int)(-145.0 * (width * width) / 8774751.0 + 287215.0 * width / 2924917.0 + 8911915.0 / 8774751.0);
+            }
+            original = makeRoundedCorner(original, radius);
+        }
+
+        // if image has white corners, get try to crop it out
+        if (original != null && isWhite(FSkin.getColorFromPixel(original.getRGB(0, 0)))) {
+            if (!isWhiteBorderSet(setCode)) {
+                int xSpacing = original.getWidth() / 40;
+                int ySpacing = original.getHeight() / 57;
+                original = original.getSubimage(xSpacing, ySpacing, original.getWidth() - (2* xSpacing), original.getHeight() - (2* ySpacing));
+            }
+        }
+        return original;
+    }
+
     private static boolean isWhite(Color color) {
         return color.getRed() > 200 && color.getBlue() > 200 && color.getGreen() > 200;
     }
@@ -407,10 +600,7 @@ public class ImageCache {
             return null;
         }
 
-        String resizedKey = String.format("%s#%dx%d", key, width, height);
-        if (key.equals(ImageKeys.getTokenKey(ImageKeys.HIDDEN_CARD))) {
-            resizedKey = hiddenSleeveCacheKey(cardView, width, height);
-        }
+        String resizedKey = resizedKeyFor(key, cardView, width, height);
 
         final BufferedImage cached = _CACHE.getIfPresent(resizedKey);
         if (null != cached) {
@@ -439,25 +629,8 @@ public class ImageCache {
             }
         }
 
-        // Calculate the scale required to best fit the image into the requested
-        // (width x height) dimensions whilst retaining aspect ratio.
-        double scaleX = (-1 == width ? 1 : (double)width / original.getWidth());
-        double scaleY = (-1 == height? 1 : (double)height / original.getHeight());
-        double bestFitScale = Math.min(scaleX, scaleY);
-        if ((bestFitScale > 1) && !FModel.getPreferences().getPrefBoolean(FPref.UI_SCALE_LARGER)) {
-            bestFitScale = 1;
-        }
-
-        BufferedImage result;
-        if (1 == bestFitScale) {
-            result = original;
-        } else {
-            int destWidth  = (int)(original.getWidth()  * bestFitScale);
-            int destHeight = (int)(original.getHeight() * bestFitScale);
-
-            ResampleOp resampler = new ResampleOp(destWidth, destHeight);
-            result = resampler.filter(original, null);
-        }
+        BufferedImage result = resample(original, width, height,
+                FModel.getPreferences().getPrefBoolean(FPref.UI_SCALE_LARGER));
 
         // Cache even placeholder renders: re-rendering and re-scaling a full card face for
         // every card on every refresh makes large zone views (tutor searches through big

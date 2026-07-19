@@ -251,11 +251,13 @@ public class CardPanel extends SkinnedPanel implements CardContainer, IDisposabl
             @Override
             public void onImageFetched() {
                 if (cachedImage != null) {
-                    setImage(cachedImage.getImage());
+                    setImage(cachedImage.getCachedImage());
                 }
             }
         };
-        setImage(cachedImage.getImage());
+        // Cache-only: if the image isn't cached yet the panel shows its text overlay and
+        // the constructor's asynchronous load repaints it via onImageFetched when ready.
+        setImage(cachedImage.getCachedImage());
     }
 
     private void setImage(final BufferedImage srcImage) {

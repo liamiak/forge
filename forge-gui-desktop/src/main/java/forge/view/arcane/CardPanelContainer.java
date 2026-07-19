@@ -23,8 +23,10 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionListener;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javax.swing.SwingUtilities;
@@ -286,6 +288,17 @@ public abstract class CardPanelContainer extends SkinnedPanel {
             }
         }
         return null;
+    }
+
+    /** Maps card id to its existing panel so bulk refreshes stay linear in zone size. */
+    public final Map<Integer, CardPanel> getCardPanelsById() {
+        final Map<Integer, CardPanel> panels = new HashMap<>();
+        for (final CardPanel panel : this.getCardPanels()) {
+            if (panel.getCard() != null) {
+                panels.put(panel.getCard().getId(), panel);
+            }
+        }
+        return panels;
     }
 
     public final void removeCardPanel(final CardPanel fromPanel) {

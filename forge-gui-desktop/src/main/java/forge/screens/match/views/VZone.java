@@ -4,7 +4,6 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -105,12 +104,7 @@ public class VZone implements IVDoc<CZone> {
             } else if (zone == ZoneType.Flashback) {
                 cardList.sort(FloatingZone.ZONE_ORDER_COMPARATOR);
             }
-            final Map<Integer, CardPanel> panelsById = new HashMap<>();
-            for (final CardPanel panel : cardArea.getCardPanels()) {
-                if (panel.getCard() != null) {
-                    panelsById.put(panel.getCard().getId(), panel);
-                }
-            }
+            final Map<Integer, CardPanel> panelsById = cardArea.getCardPanelsById();
             for (final CardView card : cardList) {
                 CardPanel cardPanel = panelsById.get(card.getId());
                 if (cardPanel == null) {
