@@ -630,10 +630,11 @@ public class FloatingZone extends FloatingCardArea {
 
     @Override
     protected void doRefresh() {
+        final Map<Integer, CardPanel> panelsById = getCardPanelsById();
         List<CardPanel> cardPanels = new ArrayList<>();
 
         for (final CardView card : getCards()) {
-            CardPanel cardPanel = getCardPanel(card.getId());
+            CardPanel cardPanel = panelsById.get(card.getId());
             if (cardPanel == null) {
                 cardPanel = new CardPanel(getMatchUI(), card);
                 cardPanel.setDisplayEnabled(true);

@@ -27,6 +27,7 @@ import java.io.File;
 import java.util.Calendar;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -77,9 +78,17 @@ public class ImageCache {
     // short prefixes to save memory
 
     private static final Set<String> _missingIconKeys = new HashSet<>();
+    // A large zone view (e.g. a 500-card library opened by a tutor effect) needs two entries
+    // per card (original + scaled); an entry cap below that causes full eviction thrash where
+    // every refresh re-decodes and re-scales every image. Enforce a floor so the configured
+    // cap can't thrash, and use soft values so memory pressure - not entry count - is what
+    // actually evicts images (as this class has always documented).
+    private static final int CACHE_SIZE_FLOOR = 1500;
+    private static final Set<String> _placeholderKeys = ConcurrentHashMap.newKeySet();
     private static final LoadingCache<String, BufferedImage> _CACHE = CacheBuilder.newBuilder()
-            .maximumSize(FModel.getPreferences().getPrefInt((FPref.UI_IMAGE_CACHE_MAXIMUM)))
+            .maximumSize(Math.max(FModel.getPreferences().getPrefInt(FPref.UI_IMAGE_CACHE_MAXIMUM), CACHE_SIZE_FLOOR))
             .expireAfterAccess(15, TimeUnit.MINUTES)
+            .softValues()
             .build(new ImageLoader());
     private static final BufferedImage _defaultImage;
     private static final BufferedImage _stars;
@@ -134,7 +143,26 @@ public class ImageCache {
     public static void clear() {
         _CACHE.invalidateAll();
         _missingIconKeys.clear();
+        _placeholderKeys.clear();
         ImageKeys.clearMissingCards();
+    }
+
+    /**
+     * Drops all scaled/rendered variants cached for the given base image key.
+     * Called when the image fetcher downloads a real image so cached placeholder
+     * renders don't mask it.
+     */
+    public static void clearGeneratedVariants(final String baseKey) {
+        if (StringUtils.isEmpty(baseKey)) {
+            return;
+        }
+        final String prefix = baseKey + "#";
+        for (final String key : _CACHE.asMap().keySet()) {
+            if (key.startsWith(prefix)) {
+                _CACHE.invalidate(key);
+                _placeholderKeys.remove(key);
+            }
+        }
     }
 
     /**
@@ -386,6 +414,11 @@ public class ImageCache {
 
         final BufferedImage cached = _CACHE.getIfPresent(resizedKey);
         if (null != cached) {
+            // A cached placeholder render must not satisfy callers probing for a real
+            // image (they use the miss to decide whether to queue an online fetch).
+            if (!useDefaultImage && _placeholderKeys.contains(resizedKey)) {
+                return null;
+            }
             return cached;
         }
 
@@ -426,9 +459,17 @@ public class ImageCache {
             result = resampler.filter(original, null);
         }
 
-        if (!isPlaceholder) {
-            _CACHE.put(resizedKey, result);
+        // Cache even placeholder renders: re-rendering and re-scaling a full card face for
+        // every card on every refresh makes large zone views (tutor searches through big
+        // libraries) unusably slow. The placeholder keys are tracked so the entries can be
+        // invalidated when the real image finishes downloading (see clearGeneratedVariants)
+        // and so image-presence probes aren't fooled by them.
+        if (isPlaceholder && original != _defaultImage) {
+            _placeholderKeys.add(resizedKey);
+        } else {
+            _placeholderKeys.remove(resizedKey);
         }
+        _CACHE.put(resizedKey, result);
         return result;
     }
     /**

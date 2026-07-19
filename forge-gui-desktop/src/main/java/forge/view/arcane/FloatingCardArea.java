@@ -24,9 +24,12 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.swing.ScrollPaneConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
 import forge.Singletons;
@@ -183,15 +186,38 @@ public abstract class FloatingCardArea extends CardArea {
         getWindow().setSize(mainFrame.getWidth() / 5, mainFrame.getHeight() / 2);
     }
 
+    private boolean refreshPending;
+
     protected void refresh() {
         if (!getWindow().isVisible()) { return; } //don't refresh while window hidden
-        doRefresh();
+        //coalesce bursts of refresh calls (e.g. many cards changing zones at once) into
+        //a single rebuild - rebuilding a large zone view is expensive
+        if (refreshPending) { return; }
+        refreshPending = true;
+        SwingUtilities.invokeLater(() -> {
+            refreshPending = false;
+            if (getWindow().isVisible()) {
+                doRefresh();
+            }
+        });
+    }
+
+    /** Maps card id to its existing panel so refreshing stays linear in zone size. */
+    protected final Map<Integer, CardPanel> getCardPanelsById() {
+        final Map<Integer, CardPanel> panels = new HashMap<>();
+        for (final CardPanel panel : getCardPanels()) {
+            if (panel.getCard() != null) {
+                panels.put(panel.getCard().getId(), panel);
+            }
+        }
+        return panels;
     }
 
     protected void doRefresh() {
+        final Map<Integer, CardPanel> panelsById = getCardPanelsById();
         List<CardPanel> cardPanels = new ArrayList<>();
         for (final CardView card : getCards()) {
-            CardPanel cardPanel = getCardPanel(card.getId());
+            CardPanel cardPanel = panelsById.get(card.getId());
             if (cardPanel == null) {
                 cardPanel = new CardPanel(getMatchUI(), card);
                 cardPanel.setDisplayEnabled(true);

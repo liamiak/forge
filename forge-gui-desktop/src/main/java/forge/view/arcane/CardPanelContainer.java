@@ -23,7 +23,9 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionListener;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import javax.swing.SwingUtilities;
 
@@ -316,8 +318,9 @@ public abstract class CardPanelContainer extends SkinnedPanel {
             return;
         }
 
+        final Set<CardPanel> retained = new HashSet<>(cardPanels);
         for (final CardPanel p : this.getCardPanels()) {
-            if (!cardPanels.contains(p)) { //dispose of any card panels that have been removed
+            if (!retained.contains(p)) { //dispose of any card panels that have been removed
                 p.dispose();
             }
         }
