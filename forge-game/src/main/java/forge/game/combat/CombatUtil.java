@@ -332,22 +332,22 @@ public class CombatUtil {
     }
 
     public static Cost getBlockCost(Game game, Card blocker, Card attacker) {
-        Cost blockCost = new Cost(ManaCost.ZERO, true);
+        // Allocated lazily: almost no board has a block cost effect, and this is called
+        // per blocker/attacker pair during combat evaluation.
+        Cost blockCost = null;
         // Sort abilities to apply them in proper order
-        boolean noCost = true;
-        for (Card card : game.getCardsIn(ZoneType.STATIC_ABILITIES_SOURCE_ZONES)) {
+        for (Card card : game.getStaticAbilitySourceCards()) {
             for (final StaticAbility stAb : card.getStaticAbilities()) {
                 Cost c1 = stAb.getBlockCost(blocker, attacker);
                 if (c1 != null) {
+                    if (blockCost == null) {
+                        blockCost = new Cost(ManaCost.ZERO, true);
+                    }
                     blockCost.add(c1);
-                    noCost = false;
                 }
             }
         }
 
-        if (noCost) {
-            return null;
-        }
         return blockCost;
     }
 
@@ -753,11 +753,15 @@ public class CombatUtil {
         final CardCollection requirementCards = new CardCollection();
         final Player defender = blocker.getController();
         for (final Card attacker : attackers) {
-            if (getBlockCost(blocker.getGame(), blocker, attacker) != null) {
+            // Check the (cheap) block requirements before the block cost: an attacker
+            // that places no requirement on this blocker is skipped either way, and
+            // getBlockCost scans every static ability in play, so testing it first
+            // made this loop pay for a full board scan per attacker in every combat.
+            if (attackerLureSatisfied(attacker, blocker, combat.getBlockers(attacker))) {
                 continue;
             }
 
-            if (attackerLureSatisfied(attacker, blocker, combat.getBlockers(attacker))) {
+            if (getBlockCost(blocker.getGame(), blocker, attacker) != null) {
                 continue;
             }
 
