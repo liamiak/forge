@@ -41,6 +41,7 @@ import forge.game.trigger.TriggerType;
 import forge.game.zone.Zone;
 import forge.game.zone.ZoneType;
 import forge.util.MyRandom;
+import forge.util.PerfProfiler;
 import forge.util.TextUtil;
 import org.apache.commons.lang3.StringUtils;
 
@@ -594,6 +595,14 @@ public class ComputerUtilMana {
 
     // returns null if unpayable
     private static List<Mana> payManaCost(final ManaCostBeingPaid cost, final SpellAbility sa, final Player ai, final boolean test, boolean checkPlayable, boolean effect) {
+        PerfProfiler.enter(test ? "ComputerUtilMana.payManaCost(test)" : "ComputerUtilMana.payManaCost(real)");
+        try {
+            return payManaCostImpl(cost, sa, ai, test, checkPlayable, effect);
+        } finally {
+            PerfProfiler.exit(test ? "ComputerUtilMana.payManaCost(test)" : "ComputerUtilMana.payManaCost(real)");
+        }
+    }
+    private static List<Mana> payManaCostImpl(final ManaCostBeingPaid cost, final SpellAbility sa, final Player ai, final boolean test, boolean checkPlayable, boolean effect) {
         if ((sa.isOffering() && sa.getSacrificedAsOffering() == null) || (sa.isEmerge() && sa.getSacrificedAsEmerge() == null)) {
             // nothing was chosen
             return null;

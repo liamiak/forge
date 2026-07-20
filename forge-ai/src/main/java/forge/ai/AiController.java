@@ -849,6 +849,14 @@ public class AiController {
 
     // This is for playing spells regularly (no Cascade/Ripple etc.)
     private AiPlayDecision canPlayAndPayForFace(final SpellAbility sa) {
+        PerfProfiler.enter("AiController.canPlayAndPayForFace");
+        try {
+            return canPlayAndPayForFaceImpl(sa);
+        } finally {
+            PerfProfiler.exit("AiController.canPlayAndPayForFace");
+        }
+    }
+    private AiPlayDecision canPlayAndPayForFaceImpl(final SpellAbility sa) {
         final Card host = sa.getHostCard();
 
         if (sa.hasParam("AICheckSVar") && !aiShouldRun(sa, sa, host, null)) {
@@ -879,6 +887,14 @@ public class AiController {
     }
 
     public AiPlayDecision canPlaySa(SpellAbility sa) {
+        PerfProfiler.enter("AiController.canPlaySa");
+        try {
+            return canPlaySaImpl(sa);
+        } finally {
+            PerfProfiler.exit("AiController.canPlaySa");
+        }
+    }
+    private AiPlayDecision canPlaySaImpl(SpellAbility sa) {
         if (!checkAiSpecificRestrictions(sa)) {
             return AiPlayDecision.CantPlayAi;
         }
@@ -1346,6 +1362,14 @@ public class AiController {
     }
 
     public List<SpellAbility> chooseSpellAbilityToPlay() {
+        PerfProfiler.enter("AiController.chooseSpellAbilityToPlay");
+        try {
+            return chooseSpellAbilityToPlayImpl();
+        } finally {
+            PerfProfiler.exit("AiController.chooseSpellAbilityToPlay");
+        }
+    }
+    private List<SpellAbility> chooseSpellAbilityToPlayImpl() {
         AiCache.clear();
         // Reset cached predicted combat, as it may be stale. It will be
         // re-created if needed and used for any AI logic that needs it.

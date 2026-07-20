@@ -13,6 +13,7 @@ import forge.game.staticability.StaticAbilityCantAttackBlock;
 import forge.game.staticability.StaticAbilityMustAttack;
 import forge.game.trigger.Trigger;
 import forge.game.trigger.TriggerType;
+import forge.util.PerfProfiler;
 
 import java.util.List;
 import java.util.function.Function;
@@ -27,6 +28,14 @@ public class CreatureEvaluator implements Function<Card, Integer> {
         return evaluateCreature(c, true, true);
     }
     public int evaluateCreature(final Card c, final boolean considerPT, final boolean considerCMC) {
+        PerfProfiler.enter("CreatureEvaluator.evaluateCreature");
+        try {
+            return evaluateCreatureImpl(c, considerPT, considerCMC);
+        } finally {
+            PerfProfiler.exit("CreatureEvaluator.evaluateCreature");
+        }
+    }
+    private int evaluateCreatureImpl(final Card c, final boolean considerPT, final boolean considerCMC) {
         //Card shouldn't be null and AI shouldn't crash since this is just score
         if (c == null)
             return 0;

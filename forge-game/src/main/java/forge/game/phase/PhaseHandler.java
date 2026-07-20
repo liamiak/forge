@@ -45,6 +45,7 @@ import forge.game.trigger.TriggerType;
 import forge.game.zone.Zone;
 import forge.game.zone.ZoneType;
 import forge.util.IHasForgeLog;
+import forge.util.PerfProfiler;
 import forge.util.TextUtil;
 
 import org.apache.commons.lang3.time.StopWatch;
@@ -239,6 +240,19 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
 
     private void onPhaseBegin() {
         boolean skipped = false;
+
+        // TEMPORARY: AI performance investigation. Dumps and resets the profile at the
+        // start of each turn and each combat, tagged with the current board size so
+        // slowdowns can be correlated with how much is in play.
+        if (PerfProfiler.isEnabled() && (phase == PhaseType.UNTAP || phase == PhaseType.COMBAT_BEGIN)) {
+            int permanents = 0, creatures = 0;
+            for (Player p : game.getPlayers()) {
+                permanents += p.getCardsIn(ZoneType.Battlefield).size();
+                creatures += p.getCreaturesInPlay().size();
+            }
+            PerfProfiler.dumpAndReset(String.format("turn %d %s %s | permanents=%d creatures=%d",
+                    turn, playerTurn, phase, permanents, creatures));
+        }
 
         game.getTriggerHandler().resetActiveTriggers();
         if (isSkippingPhase(phase)) {

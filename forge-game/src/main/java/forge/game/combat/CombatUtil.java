@@ -905,6 +905,14 @@ public class CombatUtil {
      * @return a boolean.
      */
     public static boolean canBlock(final Card attacker, final Card blocker, final Combat combat) {
+        forge.util.PerfProfiler.enter("CombatUtil.canBlock(pair)");
+        try {
+            return canBlockPairImpl(attacker, blocker, combat);
+        } finally {
+            forge.util.PerfProfiler.exit("CombatUtil.canBlock(pair)");
+        }
+    }
+    private static boolean canBlockPairImpl(final Card attacker, final Card blocker, final Combat combat) {
         if (attacker == null || blocker == null) {
             return false;
         }

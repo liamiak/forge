@@ -46,6 +46,7 @@ import forge.game.trigger.TriggerType;
 import forge.game.zone.ZoneType;
 import forge.util.IterableUtil;
 import forge.util.MyRandom;
+import forge.util.PerfProfiler;
 import forge.util.TextUtil;
 import forge.util.collect.FCollection;
 
@@ -390,6 +391,14 @@ public class ComputerUtilCombat {
         return lifeInDanger(ai, combat, 0);
     }
     public static boolean lifeInDanger(final Player ai, final Combat combat, final int payment) {
+        PerfProfiler.enter("ComputerUtilCombat.lifeInDanger");
+        try {
+            return lifeInDangerImpl(ai, combat, payment);
+        } finally {
+            PerfProfiler.exit("ComputerUtilCombat.lifeInDanger");
+        }
+    }
+    private static boolean lifeInDangerImpl(final Player ai, final Combat combat, final int payment) {
         // life in danger only cares about the player's life. Not Planeswalkers' life
         if (ai.cantLose() || combat == null || combat.getAttackingPlayer() == ai) {
             return false;
@@ -735,6 +744,15 @@ public class ComputerUtilCombat {
     }
     public static boolean combatTriggerWillTrigger(final Card attacker, final Card defender, final Trigger trigger,
             Combat combat, final List<Card> plannedAttackers) {
+        PerfProfiler.enter("ComputerUtilCombat.combatTriggerWillTrigger");
+        try {
+            return combatTriggerWillTriggerImpl(attacker, defender, trigger, combat, plannedAttackers);
+        } finally {
+            PerfProfiler.exit("ComputerUtilCombat.combatTriggerWillTrigger");
+        }
+    }
+    private static boolean combatTriggerWillTriggerImpl(final Card attacker, final Card defender, final Trigger trigger,
+            Combat combat, final List<Card> plannedAttackers) {
         final Game game = attacker.getGame();
         boolean willTrigger = false;
         final Card source = trigger.getHostCard();
@@ -866,6 +884,14 @@ public class ComputerUtilCombat {
      * @return a int.
      */
     public static int predictPowerBonusOfBlocker(final Card attacker, final Card blocker, boolean withoutAbilities) {
+        PerfProfiler.enter("ComputerUtilCombat.predictPowerBonusOfBlocker");
+        try {
+            return predictPowerBonusOfBlockerImpl(attacker, blocker, withoutAbilities);
+        } finally {
+            PerfProfiler.exit("ComputerUtilCombat.predictPowerBonusOfBlocker");
+        }
+    }
+    private static int predictPowerBonusOfBlockerImpl(final Card attacker, final Card blocker, boolean withoutAbilities) {
         int power = 0;
 
         // Serene Master switches power with attacker
@@ -1007,6 +1033,14 @@ public class ComputerUtilCombat {
      * @return a int.
      */
     public static int predictToughnessBonusOfBlocker(final Card attacker, final Card blocker, boolean withoutAbilities) {
+        PerfProfiler.enter("ComputerUtilCombat.predictToughnessBonusOfBlocker");
+        try {
+            return predictToughnessBonusOfBlockerImpl(attacker, blocker, withoutAbilities);
+        } finally {
+            PerfProfiler.exit("ComputerUtilCombat.predictToughnessBonusOfBlocker");
+        }
+    }
+    private static int predictToughnessBonusOfBlockerImpl(final Card attacker, final Card blocker, boolean withoutAbilities) {
         int toughness = 0;
 
         if (blocker.getName().equals("Shape Stealer")) {
@@ -1139,6 +1173,14 @@ public class ComputerUtilCombat {
         return predictPowerBonusOfAttacker(attacker, blocker, combat, withoutAbilities, false);
     }
     public static int predictPowerBonusOfAttacker(final Card attacker, final Card blocker, final Combat combat, boolean withoutAbilities, boolean withoutCombatStaticAbilities) {
+        PerfProfiler.enter("ComputerUtilCombat.predictPowerBonusOfAttacker");
+        try {
+            return predictPowerBonusOfAttackerImpl(attacker, blocker, combat, withoutAbilities, withoutCombatStaticAbilities);
+        } finally {
+            PerfProfiler.exit("ComputerUtilCombat.predictPowerBonusOfAttacker");
+        }
+    }
+    private static int predictPowerBonusOfAttackerImpl(final Card attacker, final Card blocker, final Combat combat, boolean withoutAbilities, boolean withoutCombatStaticAbilities) {
         int power = 0;
 
         // Serene Master switches power with attacker
@@ -1341,6 +1383,15 @@ public class ComputerUtilCombat {
         return predictToughnessBonusOfAttacker(attacker, blocker, combat, withoutAbilities, false);
     }
     public static int predictToughnessBonusOfAttacker(final Card attacker, final Card blocker, final Combat combat
+            , boolean withoutAbilities, boolean withoutCombatStaticAbilities) {
+        PerfProfiler.enter("ComputerUtilCombat.predictToughnessBonusOfAttacker");
+        try {
+            return predictToughnessBonusOfAttackerImpl(attacker, blocker, combat, withoutAbilities, withoutCombatStaticAbilities);
+        } finally {
+            PerfProfiler.exit("ComputerUtilCombat.predictToughnessBonusOfAttacker");
+        }
+    }
+    private static int predictToughnessBonusOfAttackerImpl(final Card attacker, final Card blocker, final Combat combat
             , boolean withoutAbilities, boolean withoutCombatStaticAbilities) {
         int toughness = 0;
 
@@ -1643,6 +1694,15 @@ public class ComputerUtilCombat {
     }
     public static boolean canDestroyAttacker(Player ai, Card attacker, Card blocker, final Combat combat,
             final boolean withoutAbilities, final boolean withoutAttackerStaticAbilities) {
+        PerfProfiler.enter("ComputerUtilCombat.canDestroyAttacker");
+        try {
+            return canDestroyAttackerImpl(ai, attacker, blocker, combat, withoutAbilities, withoutAttackerStaticAbilities);
+        } finally {
+            PerfProfiler.exit("ComputerUtilCombat.canDestroyAttacker");
+        }
+    }
+    private static boolean canDestroyAttackerImpl(Player ai, Card attacker, Card blocker, final Combat combat,
+            final boolean withoutAbilities, final boolean withoutAttackerStaticAbilities) {
         // Can activate transform ability
         if (!withoutAbilities) {
             attacker = canTransform(attacker);
@@ -1872,6 +1932,15 @@ public class ComputerUtilCombat {
         return canDestroyBlocker(ai, blocker, attacker, combat, withoutAbilities, false);
     }
     public static boolean canDestroyBlocker(Player ai, Card blocker, Card attacker, final Combat combat,
+            final boolean withoutAbilities, final boolean withoutAttackerStaticAbilities) {
+        PerfProfiler.enter("ComputerUtilCombat.canDestroyBlocker");
+        try {
+            return canDestroyBlockerImpl(ai, blocker, attacker, combat, withoutAbilities, withoutAttackerStaticAbilities);
+        } finally {
+            PerfProfiler.exit("ComputerUtilCombat.canDestroyBlocker");
+        }
+    }
+    private static boolean canDestroyBlockerImpl(Player ai, Card blocker, Card attacker, final Combat combat,
             final boolean withoutAbilities, final boolean withoutAttackerStaticAbilities) {
         // Can activate transform ability
         if (!withoutAbilities) {

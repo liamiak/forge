@@ -205,6 +205,14 @@ public class StaticAbilityCantAttackBlock {
     }
 
     public static boolean cantBlockBy(final Card attacker, final Card blocker) {
+        forge.util.PerfProfiler.enter("StaticAbility.cantBlockBy");
+        try {
+            return cantBlockByImpl(attacker, blocker);
+        } finally {
+            forge.util.PerfProfiler.exit("StaticAbility.cantBlockBy");
+        }
+    }
+    private static boolean cantBlockByImpl(final Card attacker, final Card blocker) {
         // add attacker and blocker first in case of LKI
         CardCollection list = new CardCollection(attacker);
         if (blocker != null) {

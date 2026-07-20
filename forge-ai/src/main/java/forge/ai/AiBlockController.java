@@ -44,6 +44,7 @@ import forge.game.trigger.Trigger;
 import forge.game.trigger.TriggerType;
 import forge.game.zone.ZoneType;
 import forge.util.MyRandom;
+import forge.util.PerfProfiler;
 import forge.util.collect.FCollectionView;
 
 
@@ -80,6 +81,14 @@ public class AiBlockController {
 
     // finds the creatures able to block the attacker
     private static List<Card> getPossibleBlockers(final Combat combat, final Card attacker, final List<Card> blockersLeft, final boolean solo) {
+        PerfProfiler.enter("AiBlockController.getPossibleBlockers");
+        try {
+            return getPossibleBlockersImpl(combat, attacker, blockersLeft, solo);
+        } finally {
+            PerfProfiler.exit("AiBlockController.getPossibleBlockers");
+        }
+    }
+    private static List<Card> getPossibleBlockersImpl(final Combat combat, final Card attacker, final List<Card> blockersLeft, final boolean solo) {
         final List<Card> blockers = new ArrayList<>();
 
         for (final Card blocker : blockersLeft) {
@@ -1047,6 +1056,15 @@ public class AiBlockController {
      * @param possibleBlockers list of blockers to be considered
      */
     private void assignBlockers(final Combat combat, List<Card> possibleBlockers) {
+        PerfProfiler.enter("AiBlockController.assignBlockers");
+        try {
+            assignBlockersImpl(combat, possibleBlockers);
+        } finally {
+            PerfProfiler.exit("AiBlockController.assignBlockers");
+        }
+    }
+
+    private void assignBlockersImpl(final Combat combat, List<Card> possibleBlockers) {
         if (attackers.isEmpty()) {
             return;
         }

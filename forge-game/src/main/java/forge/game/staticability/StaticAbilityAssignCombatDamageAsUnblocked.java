@@ -11,6 +11,14 @@ public class StaticAbilityAssignCombatDamageAsUnblocked {
     }
 
     public static boolean assignCombatDamageAsUnblocked(final Card card, final boolean optional)  {
+        forge.util.PerfProfiler.enter("StaticAbility.assignCombatDamageAsUnblocked");
+        try {
+            return assignCombatDamageAsUnblockedImpl(card, optional);
+        } finally {
+            forge.util.PerfProfiler.exit("StaticAbility.assignCombatDamageAsUnblocked");
+        }
+    }
+    private static boolean assignCombatDamageAsUnblockedImpl(final Card card, final boolean optional)  {
         final Game game = card.getGame();
         for (final Card ca : game.getCardsIn(ZoneType.STATIC_ABILITIES_SOURCE_ZONES)) {
             for (final StaticAbility stAb : ca.getStaticAbilities()) {

@@ -57,6 +57,7 @@ import forge.game.zone.Zone;
 import forge.game.zone.ZoneType;
 import forge.util.Aggregates;
 import forge.util.MyRandom;
+import forge.util.PerfProfiler;
 import forge.util.StreamUtil;
 import forge.util.collect.FCollection;
 import org.apache.commons.lang3.StringUtils;
@@ -3180,6 +3181,14 @@ public class ComputerUtil {
         return predictNextCombatsRemainingLife(ai, serious, checkDiff, payment, excludedBlockers, ai.getOpponents());
     }
     public static int predictNextCombatsRemainingLife(Player ai, boolean serious, boolean checkDiff, int payment, final CardCollection excludedBlockers, final List<Player> opps) {
+        PerfProfiler.enter("ComputerUtil.predictNextCombatsRemainingLife");
+        try {
+            return predictNextCombatsRemainingLifeImpl(ai, serious, checkDiff, payment, excludedBlockers, opps);
+        } finally {
+            PerfProfiler.exit("ComputerUtil.predictNextCombatsRemainingLife");
+        }
+    }
+    private static int predictNextCombatsRemainingLifeImpl(Player ai, boolean serious, boolean checkDiff, int payment, final CardCollection excludedBlockers, final List<Player> opps) {
         // life won't change
         int remainingLife = Integer.MAX_VALUE;
 
