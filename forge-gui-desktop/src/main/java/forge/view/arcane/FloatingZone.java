@@ -255,6 +255,9 @@ public class FloatingZone extends FloatingCardArea {
             }
         }
         final FloatingZone window = _init(matchUI, card.getController(), card.getZone());
+        //card-move animation and targeting look panels up right after a zone change, so they
+        //need any coalesced refresh applied now rather than at the end of the event queue
+        window.flushPendingRefresh();
         return window.getCardPanel(card.getId());
     }
 
@@ -630,10 +633,11 @@ public class FloatingZone extends FloatingCardArea {
 
     @Override
     protected void doRefresh() {
+        final Map<Integer, CardPanel> panelsById = buildCardPanelsById();
         List<CardPanel> cardPanels = new ArrayList<>();
 
         for (final CardView card : getCards()) {
-            CardPanel cardPanel = getCardPanel(card.getId());
+            CardPanel cardPanel = panelsById.get(card.getId());
             if (cardPanel == null) {
                 cardPanel = new CardPanel(getMatchUI(), card);
                 cardPanel.setDisplayEnabled(true);
