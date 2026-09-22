@@ -1,0 +1,78 @@
+/*
+ * Forge: Play Magic: the Gathering.
+ * Copyright (C) 2011  Forge Team
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+package forge.game.trigger;
+
+import java.util.Map;
+
+import forge.game.ability.AbilityKey;
+import forge.game.card.Card;
+import forge.game.card.sticker.StickerKind;
+import forge.game.spellability.SpellAbility;
+import forge.util.Localizer;
+
+/**
+ * Fires when a player puts a sticker on an object - CR 123.3.
+ * <p>
+ * {@code StickerKind$ Art} or {@code StickerKind$ Name,Ability,PT} restricts which kinds of
+ * sticker trigger it. A card reading "if it's an art sticker, instead ..." is written as two
+ * triggers, one on Art and one on the rest.
+ */
+public class TriggerStickerPlaced extends Trigger {
+
+    public TriggerStickerPlaced(final Map<String, String> params, final Card host, final boolean intrinsic) {
+        super(params, host, intrinsic);
+    }
+
+    @Override
+    public final boolean performTest(final Map<AbilityKey, Object> runParams) {
+        if (!matchesValidParam("ValidCard", runParams.get(AbilityKey.Card))) {
+            return false;
+        }
+        if (!matchesValidParam("ValidPlayer", runParams.get(AbilityKey.Player))) {
+            return false;
+        }
+        if (hasParam("StickerKind")) {
+            // A comma separated list, so "if it's an art sticker, instead ..." can be written as
+            // one trigger on Art and another on the kinds that are not Art.
+            boolean matched = false;
+            Object placed = runParams.get(AbilityKey.StickerKind);
+            for (String kind : getParam("StickerKind").split(",")) {
+                if (StickerKind.smartValueOf(kind.trim()) == placed) {
+                    matched = true;
+                }
+            }
+            if (!matched) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public final void setTriggeringObjects(final SpellAbility sa, Map<AbilityKey, Object> runParams) {
+        sa.setTriggeringObjectsFrom(runParams, AbilityKey.Card, AbilityKey.Player, AbilityKey.StickerKind);
+    }
+
+    @Override
+    public String getImportantStackObjects(SpellAbility sa) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(Localizer.getInstance().getMessage("lblCard")).append(": ");
+        sb.append(sa.getTriggeringObject(AbilityKey.Card));
+        return sb.toString();
+    }
+}

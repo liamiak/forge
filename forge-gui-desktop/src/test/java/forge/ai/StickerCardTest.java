@@ -4,6 +4,7 @@ import java.util.List;
 
 import forge.StaticData;
 import forge.game.Game;
+import forge.game.ability.AbilityUtils;
 import forge.game.card.Card;
 import forge.game.card.CounterEnumType;
 import forge.game.card.sticker.Sticker;
@@ -11,6 +12,7 @@ import forge.game.card.sticker.StickerKind;
 import forge.game.card.sticker.StickerSheet;
 import forge.game.phase.PhaseType;
 import forge.game.player.Player;
+import forge.game.spellability.SpellAbility;
 import forge.game.zone.ZoneType;
 import forge.item.PaperCard;
 
@@ -172,5 +174,97 @@ public class StickerCardTest extends AITest {
         }
         assertTrue(entered.isStickered(), name + " should have taken a name sticker");
         return entered;
+    }
+
+    /**
+     * Goblin Airbrusher and Wee Champion both read "whenever you place a sticker ... if it's an
+     * art sticker, instead". Both branches are exercised on the same board, so neither can pass
+     * because no trigger fired at all.
+     */
+    @Test
+    public void testStickerPlacedTriggerTellsArtApart() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        giveSheet(p, "Eldrazi Guacamole Tightrope");
+        addCard("Goblin Airbrusher", p);
+        Card champion = addCard("Wee Champion", p);
+        Card bear = addCard("Grizzly Bears", p);
+        // addCard puts the card straight into the zone, so its triggers are not registered as
+        // active until the game next checks state effects.
+        game.getAction().checkStateEffects(true);
+
+        Sticker name = firstOfKind(p, StickerKind.NAME);
+        placeAndResolve(game, bear, name, p);
+        assertEquals(countCardsWithName(game, "Treasure Token"), 1, "a name sticker makes one Treasure");
+        assertEquals(champion.getCounters(CounterEnumType.P1P1), 0, "a name sticker is not a counter");
+        assertEquals(champion.getNetPower(), 2, "a name sticker is +1/+1 until end of turn");
+
+        Sticker art = firstOfKind(p, StickerKind.ART);
+        placeAndResolve(game, bear, art, p);
+        assertEquals(countCardsWithName(game, "Treasure Token"), 3, "an art sticker makes two more Treasures");
+        assertEquals(champion.getCounters(CounterEnumType.P1P1), 1, "an art sticker is a counter");
+    }
+
+    private Sticker firstOfKind(Player p, StickerKind kind) {
+        for (Sticker s : StickerSheet.getAvailableStickers(p)) {
+            if (s.getKind() == kind) {
+                return s;
+            }
+        }
+        throw new AssertionError("no available " + kind + " sticker");
+    }
+
+    /** Places a sticker the way the effect does, and lets the triggers it fires resolve. */
+    private void placeAndResolve(Game game, Card target, Sticker sticker, Player p) {
+        target.addSticker(new forge.game.card.sticker.AppliedSticker(sticker, game.getNextTimestamp(), 0));
+        java.util.Map<forge.game.ability.AbilityKey, Object> runParams =
+                forge.game.ability.AbilityKey.newMap();
+        runParams.put(forge.game.ability.AbilityKey.Card, target);
+        runParams.put(forge.game.ability.AbilityKey.Player, p);
+        runParams.put(forge.game.ability.AbilityKey.StickerKind, sticker.getKind());
+        game.getTriggerHandler().runTrigger(forge.game.trigger.TriggerType.StickerPlaced, runParams, false);
+        game.getTriggerHandler().runWaitingTriggers();
+        game.getStack().addAllTriggeredAbilitiesToStack();
+        while (!game.getStack().isEmpty()) {
+            game.getStack().resolveStack();
+        }
+    }
+
+    /** Count$CardStickers.Name, and the withStickerKind property both targeting uses. */
+    @Test
+    public void testStickerCountAndProperty() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        giveSheet(p, "Eldrazi Guacamole Tightrope");
+        Card trespasser = addCard("_____ _____ _____ Trespasser", p);
+        game.getAction().checkStateEffects(true);
+
+        assertEquals(trespasser.getNetPower(), 2, "no stickers yet");
+        for (Sticker s : StickerSheet.getAvailableStickers(p)) {
+            if (s.getKind() == StickerKind.NAME) {
+                trespasser.addSticker(new forge.game.card.sticker.AppliedSticker(
+                        s, game.getNextTimestamp(), 0));
+                break;
+            }
+        }
+        // The pump reads Count$CardStickers.Name, so it should now be worth +1/+0.
+        SpellAbility pump = null;
+        for (SpellAbility sa : trespasser.getSpellAbilities()) {
+            if (sa.getApi() == forge.game.ability.ApiType.Pump) {
+                pump = sa;
+            }
+        }
+        assertNotNull(pump, "the pump ability should be on the card");
+        assertEquals(AbilityUtils.calculateAmount(trespasser, "X", pump), 1,
+                "one name sticker is worth one");
+
+        // Sword-Swallowing Seraph can only target a creature that has a name sticker.
+        Card seraph = addCard("Sword-Swallowing Seraph", p);
+        Card plain = addCard("Grizzly Bears", p);
+        game.getAction().checkStateEffects(true);
+        assertTrue(trespasser.isValid("Creature.stickeredWith Name", p, seraph, null),
+                "the stickered creature matches stickeredWith Name");
+        assertFalse(plain.isValid("Creature.stickeredWith Name", p, seraph, null),
+                "an unstickered creature does not");
     }
 }

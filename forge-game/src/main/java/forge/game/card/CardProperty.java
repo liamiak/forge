@@ -9,6 +9,7 @@ import forge.card.MagicColor;
 import forge.card.mana.ManaCost;
 import forge.card.mana.ManaCostShard;
 import forge.game.CardTraitBase;
+import forge.game.card.sticker.StickerKind;
 import forge.game.EvenOdd;
 import forge.game.Game;
 import forge.game.GameEntity;
@@ -1340,6 +1341,13 @@ public class CardProperty {
             }
         } else if (property.equals("nonStickered")) {
             if (card.isStickered()) {
+                return false;
+            }
+        } else if (property.startsWith("stickeredWith ")) {
+            // stickeredWith Name - has at least one sticker of that kind on it. Not "withSticker",
+            // which the broad "with<keyword>" branch above would swallow.
+            StickerKind wanted = StickerKind.smartValueOf(property.substring("stickeredWith ".length()));
+            if (card.getStickers().stream().noneMatch(s -> s.getKind() == wanted)) {
                 return false;
             }
         } else if (property.startsWith("token")) {

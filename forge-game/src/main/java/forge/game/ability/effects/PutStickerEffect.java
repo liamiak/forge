@@ -2,8 +2,10 @@ package forge.game.ability.effects;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import forge.game.Game;
+import forge.game.ability.AbilityKey;
 import forge.game.ability.SpellAbilityEffect;
 import forge.game.card.Card;
 import forge.game.card.CounterEnumType;
@@ -13,6 +15,7 @@ import forge.game.card.sticker.StickerKind;
 import forge.game.card.sticker.StickerSheet;
 import forge.game.player.Player;
 import forge.game.spellability.SpellAbility;
+import forge.game.trigger.TriggerType;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -90,6 +93,12 @@ public class PutStickerEffect extends SpellAbilityEffect {
             if (chosen.getKind() == StickerKind.NAME) {
                 recordNameStickerValues(sa, chosen.getWord());
             }
+
+            final Map<AbilityKey, Object> runParams = AbilityKey.newMap();
+            runParams.put(AbilityKey.Card, target);
+            runParams.put(AbilityKey.Player, owner);
+            runParams.put(AbilityKey.StickerKind, chosen.getKind());
+            game.getTriggerHandler().runTrigger(TriggerType.StickerPlaced, runParams, false);
             game.getTriggerHandler().runWaitingTriggers();
         }
     }

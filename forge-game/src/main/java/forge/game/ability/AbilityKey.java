@@ -124,6 +124,7 @@ public enum AbilityKey {
     ScryBottom("ScryBottom"),
     ScryNum("ScryNum"),
     Sides("Sides"),
+    StickerKind("StickerKind"),
     Source("Source"),
     Sources("Sources"),
     SourceSA("SourceSA"),

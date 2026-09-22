@@ -14,6 +14,9 @@ import forge.card.mana.ManaCostShard;
 import forge.game.*;
 import forge.game.ability.AbilityFactory.AbilityRecordType;
 import forge.game.card.*;
+import forge.game.card.sticker.AppliedSticker;
+import forge.game.card.sticker.Sticker;
+import forge.game.card.sticker.StickerKind;
 import forge.game.cost.Cost;
 import forge.game.cost.CostAdjustment;
 import forge.game.keyword.Keyword;
@@ -1563,6 +1566,41 @@ public class AbilityUtils {
      *            a {@link forge.game.CardTraitBase} object.
      * @return a int.
      */
+    /** Counts the stickers on a card for the {@code CardStickers} Count$ family. */
+    private static int countStickers(Card c, String[] sq) {
+        String kind = sq.length > 1 ? sq[1] : null;
+        if (kind == null || kind.isEmpty()) {
+            return c.getStickers().size();
+        }
+        int count = 0;
+        for (AppliedSticker applied : c.getStickers()) {
+            Sticker s = applied.getSticker();
+            if ("NameMinLetters".equals(kind) || "NameMaxLetters".equals(kind) || "NameLetter".equals(kind)) {
+                if (s.getKind() != StickerKind.NAME || sq.length < 3) {
+                    continue;
+                }
+                String letters = s.getWord() == null ? "" : s.getWord().replaceAll("[^A-Za-z]", "");
+                if ("NameLetter".equals(kind)) {
+                    char wanted = Character.toUpperCase(sq[2].charAt(0));
+                    for (char ch : letters.toUpperCase().toCharArray()) {
+                        if (ch == wanted) {
+                            count++;
+                        }
+                    }
+                } else if ("NameMinLetters".equals(kind)) {
+                    if (letters.length() >= Integer.parseInt(sq[2])) {
+                        count++;
+                    }
+                } else if (letters.length() <= Integer.parseInt(sq[2])) {
+                    count++;
+                }
+            } else if (s.getKind() == StickerKind.smartValueOf(kind)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     public static int xCount(Card c, final String s, final CardTraitBase ctb) {
         final String s2 = applyAbilityTextChangeEffects(s, ctb);
         final String[] l = s2.split("/");
@@ -2093,6 +2131,15 @@ public class AbilityUtils {
 
         if (sq[0].equals("Intensity")) {
             return doXMath(c.getIntensity(true), expr, c, ctb);
+        }
+
+        // CardStickers, CardStickers.Name, CardStickers.Art, ...; and for the cards that
+        // count letters on the name stickers they carry:
+        //   CardStickers.NameMinLetters.8   name stickers of eight or more letters
+        //   CardStickers.NameMaxLetters.7   name stickers of seven or fewer letters
+        //   CardStickers.NameLetter.o       occurrences of a letter across all name stickers
+        if (sq[0].startsWith("CardStickers")) {
+            return doXMath(countStickers(c, sq), expr, c, ctb);
         }
 
         if (sq[0].startsWith("CardCounters")) {
