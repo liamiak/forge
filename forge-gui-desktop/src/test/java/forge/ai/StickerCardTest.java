@@ -9,6 +9,7 @@ import forge.game.card.CounterEnumType;
 import forge.game.card.sticker.Sticker;
 import forge.game.card.sticker.StickerKind;
 import forge.game.card.sticker.StickerSheet;
+import forge.game.phase.PhaseType;
 import forge.game.player.Player;
 import forge.game.zone.ZoneType;
 import forge.item.PaperCard;
@@ -121,5 +122,55 @@ public class StickerCardTest extends AITest {
         assertTrue(entered.getName().contains(word),
                 "the sticker's word should be in the name: " + entered.getName());
         assertTrue(entered.getName().contains("Goblin"));
+    }
+
+    /** Each of these reads the vowel count of the name sticker it just placed. */
+    @Test
+    public void testVowelCountingCards() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        giveSheet(p, "Eldrazi Guacamole Tightrope");
+
+        // Eldrazi/Guacamole/Tightrope have 3, 4 and 3 unique vowels; the AI takes the richest.
+        int startLife = p.getLife();
+        Card bird = playAndResolve(game, p, "_____ Bird Gets the Worm");
+        int vowels = uniqueVowels(bird.getStickers().get(0).getSticker().getWord());
+        assertEquals(p.getLife() - startLife, vowels, "life gained should be the sticker's unique vowels");
+
+        // Wizards of the _____ digs as deep as the sticker's vowels, and DigAi declines any dig
+        // before main 2 that names no DestinationZone - so ask for it in main 2.
+        for (int i = 0; i < 10; i++) {
+            addCardToZone("Mountain", p, ZoneType.Library);
+        }
+        game.getPhaseHandler().devModeSet(PhaseType.MAIN2, p);
+        playAndResolve(game, p, "Wizards of the _____");
+
+        Card saurus = playAndResolve(game, p, "_____-o-saurus");
+        assertEquals(saurus.getCounters(CounterEnumType.P1P1),
+                uniqueVowels(saurus.getStickers().get(0).getSticker().getWord()),
+                "+1/+1 counters should be the sticker's unique vowels");
+    }
+
+    private static int uniqueVowels(String word) {
+        int n = 0;
+        for (char v : "AEIOUY".toCharArray()) {
+            if (word.toUpperCase().indexOf(v) >= 0) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /** Puts a card onto the battlefield through GameAction so its enters trigger fires. */
+    private Card playAndResolve(Game game, Player p, String name) {
+        Card c = addCardToZone(name, p, ZoneType.Hand);
+        Card entered = game.getAction().moveTo(ZoneType.Battlefield, c, null, null);
+        game.getTriggerHandler().runWaitingTriggers();
+        game.getStack().addAllTriggeredAbilitiesToStack();
+        while (!game.getStack().isEmpty()) {
+            game.getStack().resolveStack();
+        }
+        assertTrue(entered.isStickered(), name + " should have taken a name sticker");
+        return entered;
     }
 }
