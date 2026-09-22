@@ -60,6 +60,14 @@ public enum DeckFormat {
         }
 
         @Override
+        public String getStickerSheetConformanceProblem(Deck deck) {
+            //CR 123.2b - in limited, a player chooses up to three sheets from what they opened.
+            if (deck.get(DeckSection.Stickers).countAll() > 3)
+                return "must contain no more than 3 sticker sheets";
+            return null;
+        }
+
+        @Override
         public int getExtraSectionMaxCopies(DeckSection section) {
             if(section == DeckSection.Attractions || section == DeckSection.Contraptions)
                 return Integer.MAX_VALUE;
@@ -228,7 +236,7 @@ public enum DeckFormat {
 
     public int getExtraSectionMaxCopies(DeckSection section) {
         return switch (section) {
-            case Avatar, Commander, Planes, Dungeon, Attractions, Contraptions -> 1;
+            case Avatar, Commander, Planes, Dungeon, Attractions, Contraptions, Stickers -> 1;
             case Schemes -> 2;
             case Conspiracy -> Integer.MAX_VALUE;
             default -> maxCardCopies;
@@ -430,6 +438,12 @@ public enum DeckFormat {
                 return attractionError;
         }
 
+        if (deck.has(DeckSection.Stickers)) {
+            String stickerError = getStickerSheetConformanceProblem(deck);
+            if (stickerError != null)
+                return stickerError;
+        }
+
         if (deck.has(DeckSection.Contraptions)) {
             String contraptionError = getContraptionDeckConformanceProblem(deck);
             if (contraptionError != null)
@@ -510,6 +524,19 @@ public enum DeckFormat {
             // Constructed Attraction deck must be singleton
             if (attractionDeck.countByName(cp.getKey()) > 1)
                 return TextUtil.concatWithSpace("contains more than 1 copy of the attraction", cp.getKey().getName());
+        }
+        return null;
+    }
+
+    public String getStickerSheetConformanceProblem(Deck deck) {
+        CardPool stickerSheets = deck.get(DeckSection.Stickers);
+        //CR 123.2a - at least ten sheets, all unique. Three are chosen at random at the start.
+        if (stickerSheets.countAll() < 10)
+            return "must contain at least 10 sticker sheets, or none at all";
+        for (Entry<PaperCard, Integer> cp : stickerSheets) {
+            if (stickerSheets.countByName(cp.getKey()) > 1)
+                return TextUtil.concatWithSpace("contains more than 1 copy of the sticker sheet",
+                        cp.getKey().getName());
         }
         return null;
     }

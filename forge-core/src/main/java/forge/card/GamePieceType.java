@@ -52,5 +52,10 @@ public enum GamePieceType {
      * A Dungeon, which is created in the command zone by effects,
      * and leaves the game when completed.
      */
-    DUNGEON
+    DUNGEON,
+    /**
+     * A sticker sheet, which is revealed at the start of the game and
+     * stays revealed, supplying the stickers its owner has access to.
+     */
+    STICKER_SHEET
 }

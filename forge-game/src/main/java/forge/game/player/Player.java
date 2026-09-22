@@ -76,7 +76,10 @@ public class Player extends GameEntity implements Comparable<Player> {
     public static final List<ZoneType> ALL_ZONES = Collections.unmodifiableList(Arrays.asList(ZoneType.Battlefield,
             ZoneType.Library, ZoneType.Graveyard, ZoneType.Hand, ZoneType.Exile, ZoneType.Command, ZoneType.Ante,
             ZoneType.Sideboard, ZoneType.PlanarDeck, ZoneType.SchemeDeck, ZoneType.AttractionDeck, ZoneType.ContraptionDeck,
-            ZoneType.Junkyard, ZoneType.Merged, ZoneType.Subgame, ZoneType.None));
+            ZoneType.Junkyard, ZoneType.StickerSheets, ZoneType.Merged, ZoneType.Subgame, ZoneType.None));
+
+    /** CR 123.2a - how many of a player's sticker sheets are chosen at random to be accessible. */
+    public static final int CHOSEN_STICKER_SHEETS = 3;
 
     private int life = 20;
     private int startingLife = 20;
@@ -3035,6 +3038,23 @@ public class Player extends GameEntity implements Comparable<Player> {
         }
         if (!attractionDeck.isEmpty())
             attractionDeck.shuffle();
+
+        // Sticker sheets - CR 123.2a: reveal them all, then three are chosen at random.
+        // Only the chosen three are ever accessible (CR 123.2c), so the rest are not kept.
+        Iterable<PaperCard> sheets = registeredPlayer.getStickerSheets();
+        if (sheets != null) {
+            List<Card> revealed = new ArrayList<>();
+            for (IPaperCard cp : sheets) {
+                Card c = Card.fromPaperCard(cp, this);
+                c.setCollectible(false);
+                revealed.add(c);
+            }
+            Collections.shuffle(revealed, MyRandom.getRandom());
+            PlayerZone stickerSheets = getZone(ZoneType.StickerSheets);
+            for (Card c : revealed.subList(0, Math.min(CHOSEN_STICKER_SHEETS, revealed.size()))) {
+                stickerSheets.add(c);
+            }
+        }
 
         // Contraptions
         PlayerZone contraptionDeck = getZone(ZoneType.ContraptionDeck);

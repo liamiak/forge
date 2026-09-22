@@ -669,6 +669,9 @@ public class CardView extends GameEntityView {
         case SchemeDeck:
             // true for now, to actually see the Scheme cards (can't see deck anyway)
             return true;
+        case StickerSheets:
+            // CR 123.2c - the chosen sticker sheets are revealed and stay revealed
+            return true;
         default:
             break;
         }

@@ -1,0 +1,15 @@
+Name:Weird Angel Flame
+ManaCost:no cost
+Types:Stickers
+K:StickerSheet:STK1,STK2,STK3,STK4,STK5,STK6,STK7,STK8,STK9,STK10
+SVar:STK1:Kind$ Name | Word$ Weird
+SVar:STK2:Kind$ Name | Word$ Angel
+SVar:STK3:Kind$ Name | Word$ Flame
+SVar:STK4:Kind$ Art
+SVar:STK5:Kind$ Art
+SVar:STK6:Kind$ Art
+SVar:STK7:Kind$ Ability | Tickets$ 2 | Text$ Heroic — Whenever you cast a spell that targets this permanent, put two +1/+1 counters on it.
+SVar:STK8:Kind$ Ability | Tickets$ 3 | Text$ Protection from even mana values
+SVar:STK9:Kind$ PT | Tickets$ 2 | Power$ 2 | Toughness$ 3
+SVar:STK10:Kind$ PT | Tickets$ 5 | Power$ 7 | Toughness$ 8
+Oracle:{TK}{TK} — Heroic — Whenever you cast a spell that targets this permanent, put two +1/+1 counters on it.\n{TK}{TK}{TK} — Protection from even mana values\n{TK}{TK} — 2/3\n{TK}{TK}{TK}{TK}{TK} — 7/8
