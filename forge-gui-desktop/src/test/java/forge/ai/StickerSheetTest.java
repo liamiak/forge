@@ -1,13 +1,13 @@
 package forge.ai;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map.Entry;
+import java.util.Set;
 
 import com.google.common.collect.Lists;
 
 import forge.StaticData;
-import forge.card.CardRules;
 import forge.card.CardType;
 import forge.card.GamePieceType;
 import forge.deck.Deck;
@@ -17,12 +17,16 @@ import forge.game.GameRules;
 import forge.game.GameType;
 import forge.game.Match;
 import forge.game.card.Card;
+import forge.game.card.sticker.Sticker;
+import forge.game.card.sticker.StickerKind;
+import forge.game.card.sticker.StickerSheet;
 import forge.game.player.Player;
 import forge.game.player.RegisteredPlayer;
 import forge.game.zone.ZoneType;
 import forge.item.PaperCard;
 import forge.model.FModel;
 
+import org.apache.commons.lang3.StringUtils;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
@@ -65,41 +69,38 @@ public class StickerSheetTest extends AITest {
      */
     @Test
     public void testEverySheetHasTenStickers() {
-        for (PaperCard pc : allSheets()) {
-            CardRules rules = pc.getRules();
-            String keyword = null;
-            for (String k : rules.getMainPart().getKeywords()) {
-                if (k.startsWith("StickerSheet:")) {
-                    keyword = k;
-                }
-            }
-            assertNotNull(keyword, pc.getName() + " should declare a StickerSheet keyword");
+        Game game = newGame();
+        Player owner = game.getPlayers().get(0);
 
-            String[] keys = keyword.substring("StickerSheet:".length()).split(",");
-            assertEquals(keys.length, 10, pc.getName() + " should list ten stickers");
+        for (PaperCard pc : allSheets()) {
+            List<Sticker> stickers = StickerSheet.getStickers(Card.fromPaperCard(pc, owner));
+            assertEquals(stickers.size(), 10, pc.getName() + " should carry ten stickers");
 
             int names = 0, art = 0, abilities = 0, pts = 0;
-            for (String key : keys) {
-                String value = null;
-                for (Entry<String, String> sVar : rules.getMainPart().getVariables()) {
-                    if (sVar.getKey().equalsIgnoreCase(key)) {
-                        value = sVar.getValue();
+            for (Sticker s : stickers) {
+                switch (s.getKind()) {
+                    case NAME -> {
+                        names++;
+                        assertTrue(StringUtils.isNotBlank(s.getWord()),
+                                pc.getName() + ": name sticker " + s.getSlot() + " has no word");
+                        assertEquals(s.getTickets(), 0, pc.getName() + ": name stickers are free");
                     }
-                }
-                assertNotNull(value, pc.getName() + " names sticker " + key + " but has no such SVar");
-                if (value.startsWith("Kind$ Name")) {
-                    names++;
-                    assertTrue(value.contains("| Word$ "), pc.getName() + ": name sticker " + key + " has no word");
-                } else if (value.startsWith("Kind$ Art")) {
-                    art++;
-                } else if (value.startsWith("Kind$ Ability")) {
-                    abilities++;
-                    assertTrue(value.contains("| Tickets$ "), pc.getName() + ": " + key + " has no ticket cost");
-                } else if (value.startsWith("Kind$ PT")) {
-                    pts++;
-                    assertTrue(value.contains("| Power$ ") && value.contains("| Toughness$ "),
-                            pc.getName() + ": P/T sticker " + key + " is missing its power or toughness");
-                    assertTrue(value.contains("| Tickets$ "), pc.getName() + ": " + key + " has no ticket cost");
+                    case ART -> {
+                        art++;
+                        assertEquals(s.getTickets(), 0, pc.getName() + ": art stickers are free");
+                    }
+                    case ABILITY -> {
+                        abilities++;
+                        assertTrue(s.getTickets() > 0,
+                                pc.getName() + ": ability sticker " + s.getSlot() + " has no ticket cost");
+                        assertTrue(StringUtils.isNotBlank(s.getText()),
+                                pc.getName() + ": ability sticker " + s.getSlot() + " has no text");
+                    }
+                    case PT -> {
+                        pts++;
+                        assertTrue(s.getTickets() > 0,
+                                pc.getName() + ": P/T sticker " + s.getSlot() + " has no ticket cost");
+                    }
                 }
             }
             String where = pc.getName() + ": ";
@@ -108,6 +109,20 @@ public class StickerSheetTest extends AITest {
             assertEquals(abilities, 2, where + "ability stickers");
             assertEquals(pts, 2, where + "power/toughness stickers");
         }
+    }
+
+    /** CR 123.3a - two stickers are never the same sticker, even reading identically. */
+    @Test
+    public void testStickersAreDistinctBySlot() {
+        Game game = newGame();
+        Card sheet = Card.fromPaperCard(allSheets().get(0), game.getPlayers().get(0));
+        List<Sticker> stickers = StickerSheet.getStickers(sheet);
+        Set<String> slots = new HashSet<>();
+        for (Sticker s : stickers) {
+            assertTrue(slots.add(s.getSlot()), "slot " + s.getSlot() + " appears twice");
+        }
+        // The three art stickers read identically but are three different stickers.
+        assertEquals(stickers.stream().filter(s -> s.getKind() == StickerKind.ART).count(), 3);
     }
 
     /**
@@ -130,13 +145,15 @@ public class StickerSheetTest extends AITest {
             }
         }
         assertNotNull(sheet, "Ancestral Hot Dog Minotaur should be in the sticker sheet pool");
-        boolean found = false;
-        for (Entry<String, String> sVar : sheet.getRules().getMainPart().getVariables()) {
-            if ("Kind$ Name | Word$ Hot Dog".equals(sVar.getValue())) {
-                found = true;
+        Game game = newGame();
+        List<String> words = new ArrayList<>();
+        for (Sticker s : StickerSheet.getStickers(Card.fromPaperCard(sheet, game.getPlayers().get(0)))) {
+            if (s.getKind() == StickerKind.NAME) {
+                words.add(s.getWord());
             }
         }
-        assertTrue(found, "\"Hot Dog\" should be one name sticker, not two");
+        assertEquals(words, List.of("Ancestral", "Hot Dog", "Minotaur"),
+                "\"Hot Dog\" should be one name sticker, not two");
     }
 
     /** CR 123.2a - three of the player's sheets are chosen at random and revealed. */
@@ -164,6 +181,15 @@ public class StickerSheetTest extends AITest {
     public void testNoSheets() {
         Player p = playerWithSheets(new ArrayList<>());
         assertEquals(p.getZone(ZoneType.StickerSheets).size(), 0);
+    }
+
+    /** An empty two-player game, just to own the cards under test. */
+    private Game newGame() {
+        List<RegisteredPlayer> players = Lists.newArrayList(
+                new RegisteredPlayer(new Deck()).setPlayer(new LobbyPlayerAi("p1", null)),
+                new RegisteredPlayer(new Deck()).setPlayer(new LobbyPlayerAi("p2", null)));
+        GameRules rules = new GameRules(GameType.Constructed);
+        return new Game(players, rules, new Match(rules, players, "StickerSheetTest"));
     }
 
     /**
