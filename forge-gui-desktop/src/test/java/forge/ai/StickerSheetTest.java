@@ -21,6 +21,7 @@ import forge.game.player.Player;
 import forge.game.player.RegisteredPlayer;
 import forge.game.zone.ZoneType;
 import forge.item.PaperCard;
+import forge.model.FModel;
 
 import org.testng.annotations.Test;
 
@@ -107,6 +108,16 @@ public class StickerSheetTest extends AITest {
             assertEquals(abilities, 2, where + "ability stickers");
             assertEquals(pts, 2, where + "power/toughness stickers");
         }
+    }
+
+    /**
+     * The deck editor shows its sticker sheet section when this pool is non-empty, so an empty
+     * pool means the section silently disappears from the editor.
+     */
+    @Test
+    public void testEditorPoolIsPopulated() {
+        assertEquals(FModel.getStickerSheetPool().countAll(), SHEET_COUNT,
+                "the deck editor's sticker sheet pool should hold every sheet");
     }
 
     /** A name sticker may carry more than one word - CR 123.6 - as "Hot Dog" does on sheet 23. */
