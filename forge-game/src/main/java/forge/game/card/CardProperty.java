@@ -1333,6 +1333,15 @@ public class CardProperty {
             if (!card.isModified()) {
                 return false;
             }
+        } else if (property.equals("stickered")) {
+            // CR 123.4 - an object is "stickered" while it has any kind of sticker on it.
+            if (!card.isStickered()) {
+                return false;
+            }
+        } else if (property.equals("nonStickered")) {
+            if (card.isStickered()) {
+                return false;
+            }
         } else if (property.startsWith("token")) {
             if (!card.isToken() && !card.isTokenCard()) {
                 return false;

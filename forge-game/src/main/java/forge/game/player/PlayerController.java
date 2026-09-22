@@ -15,6 +15,7 @@ import forge.game.GameOutcome.AnteResult;
 import forge.game.ability.AbilityUtils;
 import forge.game.ability.effects.RollDiceEffect;
 import forge.game.card.*;
+import forge.game.card.sticker.Sticker;
 import forge.game.combat.Combat;
 import forge.game.cost.*;
 import forge.game.keyword.KeywordInterface;
@@ -251,6 +252,19 @@ public abstract class PlayerController {
     }
 
     public abstract String chooseSector(Card assignee, String ai, List<String> sectors);
+
+    /**
+     * CR 123.3 - choose one of the stickers this player has access to, to put on the given
+     * object. Returns null to decline when the choice is optional.
+     */
+    public abstract Sticker chooseSticker(List<Sticker> options, Card target, SpellAbility sa,
+            boolean isOptional);
+
+    /**
+     * CR 123.6b - choose how many of the object's words precede the word a name sticker adds.
+     * The answer ranges from 0 (first) to the number of words in the name (last).
+     */
+    public abstract int chooseStickerNamePosition(Sticker sticker, Card target, int wordCount);
     public final String chooseSector(Card assignee, String ai) {
         final List<String> sectors = Arrays.asList("Alpha", "Beta", "Gamma");
         return chooseSector(assignee, ai, sectors);

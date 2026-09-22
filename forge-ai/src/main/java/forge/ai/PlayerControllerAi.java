@@ -18,6 +18,7 @@ import forge.game.ability.ApiType;
 import forge.game.ability.effects.CharmEffect;
 import forge.game.ability.effects.RollDiceEffect;
 import forge.game.card.*;
+import forge.game.card.sticker.Sticker;
 import forge.game.combat.Combat;
 import forge.game.cost.*;
 import forge.game.keyword.Keyword;
@@ -716,6 +717,48 @@ public class PlayerControllerAi extends PlayerController {
     @Override
     public Object vote(SpellAbility sa, String prompt, List<Object> options, ListMultimap<Object, Player> votes, Player forPlayer, boolean optional) {
         return ComputerUtil.vote(player, options, sa, votes, forPlayer);
+    }
+
+    @Override
+    public Sticker chooseSticker(List<Sticker> options, Card target, SpellAbility sa, boolean isOptional) {
+        // Prefer the sticker that helps most: a bigger body, then an ability, then a name (which
+        // can matter for vowel counts), then art. Ties break on the cheaper ticket cost.
+        Sticker best = null;
+        int bestScore = Integer.MIN_VALUE;
+        for (Sticker s : options) {
+            int score = switch (s.getKind()) {
+                case PT -> 1000 + (s.getPower() + s.getToughness()
+                        - target.getNetPower() - target.getNetToughness()) * 10;
+                case ABILITY -> 500;
+                case NAME -> 100 + countUniqueVowels(s.getWord());
+                case ART -> 50;
+            };
+            score -= s.getTickets();
+            if (score > bestScore) {
+                bestScore = score;
+                best = s;
+            }
+        }
+        return best;
+    }
+
+    private static int countUniqueVowels(String word) {
+        if (word == null) {
+            return 0;
+        }
+        int unique = 0;
+        for (char v : "AEIOUY".toCharArray()) {
+            if (word.toUpperCase().indexOf(v) >= 0) {
+                unique++;
+            }
+        }
+        return unique;
+    }
+
+    @Override
+    public int chooseStickerNamePosition(Sticker sticker, Card target, int wordCount) {
+        // Position only changes the printed name, so put the word at the front.
+        return 0;
     }
 
     @Override

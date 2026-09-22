@@ -151,6 +151,7 @@ public enum SpellApiToAi {
             .put(ApiType.Pump, PumpAi.class)
             .put(ApiType.PumpAll, PumpAllAi.class)
             .put(ApiType.PutCounter, CountersPutAi.class)
+            .put(ApiType.PutSticker, PutStickerAi.class)
             .put(ApiType.PutCounterAll, CountersPutAllAi.class)
             .put(ApiType.Radiation, AlwaysPlayAi.class)
             .put(ApiType.RearrangeTopOfLibrary, RearrangeTopOfLibraryAi.class)

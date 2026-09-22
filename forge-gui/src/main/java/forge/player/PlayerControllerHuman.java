@@ -20,6 +20,7 @@ import forge.game.ability.AbilityUtils;
 import forge.game.ability.ApiType;
 import forge.game.ability.effects.RollDiceEffect;
 import forge.game.card.*;
+import forge.game.card.sticker.Sticker;
 import forge.game.card.CardView.CardStateView;
 import forge.game.card.token.TokenInfo;
 import forge.game.combat.Combat;
@@ -1397,6 +1398,29 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
                 types.add(0, type);
             }
         }
+    }
+
+    @Override
+    public Sticker chooseSticker(List<Sticker> options, Card target, SpellAbility sa, boolean isOptional) {
+        String title = localizer.getMessage("lblChooseSticker", CardTranslation.getTranslatedName(target.getName()));
+        return getGui().one(title, options);
+    }
+
+    @Override
+    public int chooseStickerNamePosition(Sticker sticker, Card target, int wordCount) {
+        if (wordCount == 0) {
+            return 0;
+        }
+        // CR 123.6b - offer every name the sticker could produce and let them pick one.
+        List<String> names = Lists.newArrayList();
+        String[] words = target.getName().split(" ");
+        for (int at = 0; at <= words.length; at++) {
+            List<String> parts = Lists.newArrayList(words);
+            parts.add(at, sticker.getWord());
+            names.add(String.join(" ", parts));
+        }
+        String chosen = getGui().one(localizer.getMessage("lblChooseStickerNamePosition"), names);
+        return Math.max(0, names.indexOf(chosen));
     }
 
     @Override

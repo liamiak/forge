@@ -21,6 +21,7 @@ import forge.game.*;
 import forge.game.ability.AbilityUtils;
 import forge.game.ability.effects.RollDiceEffect;
 import forge.game.card.*;
+import forge.game.card.sticker.Sticker;
 import forge.game.combat.Combat;
 import forge.game.combat.CombatUtil;
 import forge.game.cost.*;
@@ -498,6 +499,16 @@ public class PlayerControllerForTests extends PlayerController {
     @Override
     public String chooseSomeType(String kindOfType, SpellAbility sa, Collection<String> validTypes, boolean isOptional) {
         return chooseItem(validTypes);
+    }
+
+    @Override
+    public Sticker chooseSticker(List<Sticker> options, Card target, SpellAbility sa, boolean isOptional) {
+        return options.isEmpty() ? null : options.get(0);
+    }
+
+    @Override
+    public int chooseStickerNamePosition(Sticker sticker, Card target, int wordCount) {
+        return 0;
     }
 
     @Override

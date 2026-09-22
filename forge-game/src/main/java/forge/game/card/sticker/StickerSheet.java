@@ -1,10 +1,15 @@
 package forge.game.card.sticker;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import forge.game.ability.AbilityFactory;
 import forge.game.card.Card;
+import forge.game.card.CounterEnumType;
+import forge.game.player.Player;
+import forge.game.zone.ZoneType;
 import forge.game.keyword.KeywordInterface;
 
 /**
@@ -26,6 +31,43 @@ public final class StickerSheet {
     /** True if this card is a sticker sheet rather than a card. */
     public static boolean isSheet(Card c) {
         return c != null && c.getType().isStickers();
+    }
+
+    /** The sheets a player currently has access to - CR 123.2c. */
+    public static List<Card> getAccessibleSheets(Player p) {
+        return new ArrayList<>(p.getCardsIn(ZoneType.StickerSheets));
+    }
+
+    /**
+     * The stickers a player may choose from when told to put one on an object - CR 123.3.
+     * <p>
+     * A sticker is available when it is on one of their revealed sheets and is not currently on
+     * any object they own. Note a sticker becomes available again once the object it was on
+     * moves to a hidden zone, because it is then on no object at all (CR 123.5).
+     */
+    public static List<Sticker> getAvailableStickers(Player p) {
+        Set<String> onSomething = new HashSet<>();
+        for (Card c : p.getAllCards()) {
+            for (AppliedSticker applied : c.getStickers()) {
+                onSomething.add(identity(applied.getSticker()));
+            }
+        }
+        List<Sticker> available = new ArrayList<>();
+        for (Card sheet : getAccessibleSheets(p)) {
+            for (Sticker s : getStickers(sheet)) {
+                // CR 123.3c - a sticker they cannot pay the ticket cost of is not a legal choice.
+                if (!onSomething.contains(identity(s)) && s.isImplemented()
+                        && s.getTickets() <= p.getCounters(CounterEnumType.TICKET)) {
+                    available.add(s);
+                }
+            }
+        }
+        return available;
+    }
+
+    /** CR 123.3a - a sticker is its sheet and its slot, never its text. */
+    private static String identity(Sticker s) {
+        return s.getSheet().getId() + "/" + s.getSlot();
     }
 
     /**
