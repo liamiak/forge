@@ -265,6 +265,11 @@ public class GameAction {
             if (c.hasPerpetual()) {
                 copied.setPerpetual(c);
             }
+            // CR 123.5 - stickers are kept on a move to another public zone, and are not kept
+            // on a move to a hidden one.
+            if (c.isStickered() && !zoneTo.getZoneType().isHidden()) {
+                copied.setStickers(c);
+            }
         }
 
         // ensure that any leftover keyword/type changes are cleared in the state view

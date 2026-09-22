@@ -34,6 +34,8 @@ import forge.game.ability.AbilityUtils;
 import forge.game.ability.ApiType;
 import forge.game.ability.SpellAbilityEffect;
 import forge.game.card.perpetual.PerpetualInterface;
+import forge.game.card.sticker.AppliedSticker;
+import forge.game.card.sticker.StickerKind;
 import forge.game.combat.Combat;
 import forge.game.combat.CombatLki;
 import forge.game.cost.Cost;
@@ -4594,6 +4596,64 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
     public final void setIntensity(final int n) { intensity = n; }
     public final boolean hasIntensity() {
         return intensity > 0;
+    }
+
+    private List<AppliedSticker> stickers = new ArrayList<>();
+
+    /** CR 123.4 - an object is "stickered" while it has any sticker on it. */
+    public final boolean isStickered() {
+        return !stickers.isEmpty();
+    }
+    public final List<AppliedSticker> getStickers() {
+        return stickers;
+    }
+    public final void addSticker(final AppliedSticker s) {
+        stickers.add(s);
+        s.applyEffect(this);
+    }
+    /**
+     * CR 123.5 - stickers carry over to the new object in another public zone, keeping their
+     * timestamps and name positions, and apply again there.
+     */
+    public final void setStickers(final Card oldCard) {
+        stickers = oldCard.getStickers();
+        for (AppliedSticker s : stickers) {
+            s.applyEffect(this);
+        }
+    }
+    public final void clearStickers() {
+        stickers = new ArrayList<>();
+    }
+
+    /**
+     * CR 123.6c - rebuilds the name from the card's own name plus every name sticker on it, in
+     * timestamp order. Each sticker's word goes after the number of words that preceded it when
+     * it was placed, or at the end if the name is now shorter than that.
+     */
+    public final void recomputeStickerName() {
+        List<AppliedSticker> nameStickers = new ArrayList<>();
+        for (AppliedSticker s : stickers) {
+            if (s.getKind() == StickerKind.NAME) {
+                nameStickers.add(s);
+            }
+        }
+        if (nameStickers.isEmpty()) {
+            return;
+        }
+        nameStickers.sort(Comparator.comparingLong(AppliedSticker::getTimestamp));
+
+        List<String> words = new ArrayList<>();
+        String base = currentState.getName();
+        if (StringUtils.isNotBlank(base)) {
+            Collections.addAll(words, base.split(" "));
+        }
+        long timestamp = 0;
+        for (AppliedSticker s : nameStickers) {
+            int at = Math.min(s.getNamePosition(), words.size());
+            words.add(at, s.getSticker().getWord());
+            timestamp = s.getTimestamp();
+        }
+        addChangedName(String.join(" ", words), false, timestamp, 0);
     }
 
     private List<PerpetualInterface> perpetual = new ArrayList<>();
