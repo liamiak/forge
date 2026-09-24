@@ -281,6 +281,7 @@ public class StickerCardTest extends AITest {
             "Aerialephant", "Carnival Carnivore", "Chicken Troupe", "Glitterflitter",
             "Minotaur de Force", "Stiltstrider", "Ticketomaton",
             "Big Winner", "Croakid Amphibonaut", "Grabby Tabby", "Sanguine Sipper", "Scared Stiff",
+            "Proficient Pyrodancer", "Unlawful Entry", "Bioluminary", "Prize Wall", "Scampire",
         };
         for (String name : names) {
             Card c = addCardToZone(name, p, ZoneType.Hand);
@@ -362,5 +363,29 @@ public class StickerCardTest extends AITest {
         assertEquals(p.getCounters(CounterEnumType.TICKET), 2 - spent,
                 "two tickets gained, minus whatever the sticker cost");
         assertTrue(spent > 0, "with two tickets in hand the AI should take a sticker worth paying for");
+    }
+
+    /**
+     * Scampire stickers a creature card in the graveyard, which is the only user of
+     * ChoiceZone$ Graveyard. A sticker in a public zone stays put (CR 123.5).
+     */
+    @Test
+    public void testStickerOnAGraveyardCard() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        giveSheet(p, "Eldrazi Guacamole Tightrope");
+        Card corpse = addCardToZone("Grizzly Bears", p, ZoneType.Graveyard);
+
+        Card c = addCardToZone("Scampire", p, ZoneType.Hand);
+        game.getAction().moveTo(ZoneType.Battlefield, c, null, null);
+        game.getTriggerHandler().runWaitingTriggers();
+        game.getStack().addAllTriggeredAbilitiesToStack();
+        while (!game.getStack().isEmpty()) {
+            game.getStack().resolveStack();
+        }
+
+        assertTrue(corpse.isStickered(), "the creature card in the graveyard should be stickered");
+        assertTrue(corpse.isValid("Creature.stickered+YouOwn", p, corpse, null),
+                "and should match what Scampire's activated ability looks for");
     }
 }
