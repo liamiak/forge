@@ -8,6 +8,8 @@ import forge.game.Game;
 import forge.game.ability.AbilityKey;
 import forge.game.ability.SpellAbilityEffect;
 import forge.game.card.Card;
+import forge.game.card.CardCollection;
+import forge.game.card.CardLists;
 import forge.game.card.CounterEnumType;
 import forge.game.card.sticker.AppliedSticker;
 import forge.game.card.sticker.Sticker;
@@ -16,6 +18,7 @@ import forge.game.card.sticker.StickerSheet;
 import forge.game.player.Player;
 import forge.game.spellability.SpellAbility;
 import forge.game.trigger.TriggerType;
+import forge.game.zone.ZoneType;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -46,13 +49,43 @@ public class PutStickerEffect extends SpellAbilityEffect {
         return sb.toString();
     }
 
+    /**
+     * The objects to sticker. These cards say "a nonland permanent you own", not "target", so
+     * the normal form is {@code Choices$}, a choice rather than a target. {@code ValidTgts$} is
+     * for the few that really do target.
+     */
+    private static List<Card> chooseObjects(SpellAbility sa, Game game) {
+        if (!sa.hasParam("Choices")) {
+            return getTargetCards(sa);
+        }
+        Player chooser = sa.getActivatingPlayer();
+        ZoneType zone = sa.hasParam("ChoiceZone")
+                ? ZoneType.smartValueOf(sa.getParam("ChoiceZone")) : ZoneType.Battlefield;
+        CardCollection pool = CardLists.getValidCards(game.getCardsIn(zone), sa.getParam("Choices"),
+                chooser, sa.getHostCard(), sa);
+        // CR 123.3b - only an object its owner owns can be stickered, so never offer the rest.
+        pool = CardLists.filter(pool, c -> chooser.equals(c.getOwner()));
+        if (pool.isEmpty()) {
+            return new CardCollection();
+        }
+        String prompt = sa.hasParam("ChoiceTitle") ? sa.getParam("ChoiceTitle")
+                : "Choose a permanent to put a sticker on";
+        Card chosen = chooser.getController().chooseSingleEntityForEffect(pool, sa, prompt,
+                sa.hasParam("Optional"), null);
+        CardCollection result = new CardCollection();
+        if (chosen != null) {
+            result.add(chosen);
+        }
+        return result;
+    }
+
     @Override
     public void resolve(SpellAbility sa) {
         final Game game = sa.getActivatingPlayer().getGame();
         final StickerKind only = sa.hasParam("Kind") ? StickerKind.smartValueOf(sa.getParam("Kind")) : null;
         final boolean optional = sa.hasParam("Optional");
 
-        for (final Card target : getTargetCards(sa)) {
+        for (final Card target : chooseObjects(sa, game)) {
             // CR 123.3b - a player can't put a sticker on an object they don't own. If an effect
             // would make them, that part of the effect does nothing.
             final Player owner = target.getOwner();

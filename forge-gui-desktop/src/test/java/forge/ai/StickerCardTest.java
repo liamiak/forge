@@ -278,6 +278,9 @@ public class StickerCardTest extends AITest {
             "Goblin Airbrusher", "Wee Champion", "_____ _____ _____ Trespasser",
             "Sword-Swallowing Seraph", "Baaallerina", "A Good Day to Pie",
             "Make a _____ Splash", "_____ Balls of Fire",
+            "Aerialephant", "Carnival Carnivore", "Chicken Troupe", "Glitterflitter",
+            "Minotaur de Force", "Stiltstrider", "Ticketomaton",
+            "Big Winner", "Croakid Amphibonaut", "Grabby Tabby", "Sanguine Sipper", "Scared Stiff",
         };
         for (String name : names) {
             Card c = addCardToZone(name, p, ZoneType.Hand);
@@ -311,5 +314,53 @@ public class StickerCardTest extends AITest {
             }
         }
         throw new AssertionError("the sheet should have a name sticker containing an o");
+    }
+
+    /** "has X as long as you control a stickered permanent" turns on and off with the sticker. */
+    @Test
+    public void testStickeredPermanentStatic() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        giveSheet(p, "Eldrazi Guacamole Tightrope");
+        Card sipper = addCard("Sanguine Sipper", p);
+        Card bear = addCard("Grizzly Bears", p);
+        game.getAction().checkStateEffects(true);
+        assertFalse(sipper.hasKeyword("Lifelink"), "nothing is stickered yet");
+
+        bear.addSticker(new forge.game.card.sticker.AppliedSticker(
+                firstOfKind(p, StickerKind.ART), game.getNextTimestamp(), 0));
+        game.getAction().checkStateEffects(true);
+        assertTrue(sipper.hasKeyword("Lifelink"), "a stickered permanent grants lifelink");
+
+        // Off the battlefield to a hidden zone, the sticker goes with it (CR 123.5).
+        game.getAction().moveTo(ZoneType.Hand, bear, null, null);
+        game.getAction().checkStateEffects(true);
+        assertFalse(sipper.hasKeyword("Lifelink"), "no stickered permanent, no lifelink");
+    }
+
+    /**
+     * "You get {TK}{TK}, then you may put a sticker on a nonland permanent you own" - the tickets
+     * arrive and are then available to spend on the sticker, which is the point of the card.
+     */
+    @Test
+    public void testTicketThenStickerCard() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        giveSheet(p, "Eldrazi Guacamole Tightrope");
+        assertEquals(p.getCounters(CounterEnumType.TICKET), 0);
+
+        Card c = addCardToZone("Stiltstrider", p, ZoneType.Hand);
+        Card entered = game.getAction().moveTo(ZoneType.Battlefield, c, null, null);
+        game.getTriggerHandler().runWaitingTriggers();
+        game.getStack().addAllTriggeredAbilitiesToStack();
+        while (!game.getStack().isEmpty()) {
+            game.getStack().resolveStack();
+        }
+
+        assertTrue(entered.isStickered(), "Stiltstrider should have stickered something it owns");
+        int spent = entered.getStickers().get(0).getSticker().getTickets();
+        assertEquals(p.getCounters(CounterEnumType.TICKET), 2 - spent,
+                "two tickets gained, minus whatever the sticker cost");
+        assertTrue(spent > 0, "with two tickets in hand the AI should take a sticker worth paying for");
     }
 }
