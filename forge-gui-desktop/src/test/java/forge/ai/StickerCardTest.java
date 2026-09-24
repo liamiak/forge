@@ -267,4 +267,49 @@ public class StickerCardTest extends AITest {
         assertFalse(plain.isValid("Creature.stickeredWith Name", p, seraph, null),
                 "an unstickered creature does not");
     }
+
+    /** Every sticker card implemented so far loads and keeps its rules text. */
+    @Test
+    public void testAllStickerCardsLoad() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        String[] names = {
+            "_____ Goblin", "_____ Bird Gets the Worm", "_____-o-saurus", "Wizards of the _____",
+            "Goblin Airbrusher", "Wee Champion", "_____ _____ _____ Trespasser",
+            "Sword-Swallowing Seraph", "Baaallerina", "A Good Day to Pie",
+            "Make a _____ Splash", "_____ Balls of Fire",
+        };
+        for (String name : names) {
+            Card c = addCardToZone(name, p, ZoneType.Hand);
+            assertEquals(c.getName(), name, name + " should keep its printed name");
+            assertTrue(!c.getTriggers().isEmpty() || !c.getSpellAbilities().isEmpty(),
+                    name + " should have a trigger or an ability");
+        }
+    }
+
+    /** Count$CardStickers.NameLetter counts one letter across the name stickers on a card. */
+    @Test
+    public void testNameLetterCount() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        giveSheet(p, "Eldrazi Guacamole Tightrope");
+        Card fire = addCard("_____ Balls of Fire", p);
+        game.getAction().checkStateEffects(true);
+
+        assertEquals(AbilityUtils.calculateAmount(fire, "X", fire.getTriggers().get(1)), 0,
+                "no stickers, no o's");
+
+        // "Guacamole" carries one o; "Tightrope" carries one too.
+        for (Sticker s : StickerSheet.getAvailableStickers(p)) {
+            if (s.getKind() == StickerKind.NAME && s.getWord().toLowerCase().indexOf('o') >= 0) {
+                fire.addSticker(new forge.game.card.sticker.AppliedSticker(
+                        s, game.getNextTimestamp(), 0));
+                int expected = s.getWord().toLowerCase().replaceAll("[^o]", "").length();
+                assertEquals(AbilityUtils.calculateAmount(fire, "X", fire.getTriggers().get(1)), expected,
+                        "o's in " + s.getWord());
+                return;
+            }
+        }
+        throw new AssertionError("the sheet should have a name sticker containing an o");
+    }
 }
