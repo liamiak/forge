@@ -9,7 +9,7 @@ SVar:STK4:Kind$ Art
 SVar:STK5:Kind$ Art
 SVar:STK6:Kind$ Art
 SVar:STK7:Kind$ Ability | Tickets$ 2 | Text$ Whenever this creature attacks, you gain 2 life.
-SVar:STK8:Kind$ Ability | Tickets$ 3 | Text$ Vigilance, reach
+SVar:STK8:Kind$ Ability | Tickets$ 3 | Text$ Vigilance, reach | Keywords$ Vigilance,Reach
 SVar:STK9:Kind$ PT | Tickets$ 2 | Power$ 2 | Toughness$ 4
 SVar:STK10:Kind$ PT | Tickets$ 5 | Power$ 7 | Toughness$ 7
 Oracle:{TK}{TK} — Whenever this creature attacks, you gain 2 life.\n{TK}{TK}{TK} — Vigilance, reach\n{TK}{TK} — 2/4\n{TK}{TK}{TK}{TK}{TK} — 7/7

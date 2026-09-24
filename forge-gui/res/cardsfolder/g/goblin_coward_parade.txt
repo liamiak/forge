@@ -8,7 +8,7 @@ SVar:STK3:Kind$ Name | Word$ Parade
 SVar:STK4:Kind$ Art
 SVar:STK5:Kind$ Art
 SVar:STK6:Kind$ Art
-SVar:STK7:Kind$ Ability | Tickets$ 2 | Text$ Mentor (Whenever this creature attacks, put a +1/+1 counter on target attacking creature with lesser power.)
+SVar:STK7:Kind$ Ability | Tickets$ 2 | Text$ Mentor (Whenever this creature attacks, put a +1/+1 counter on target attacking creature with lesser power.) | Keywords$ Mentor
 SVar:STK8:Kind$ Ability | Tickets$ 3 | Text$ When this permanent leaves the battlefield, you may destroy target creature with power 4 or greater.
 SVar:STK9:Kind$ PT | Tickets$ 2 | Power$ 2 | Toughness$ 3
 SVar:STK10:Kind$ PT | Tickets$ 4 | Power$ 8 | Toughness$ 4

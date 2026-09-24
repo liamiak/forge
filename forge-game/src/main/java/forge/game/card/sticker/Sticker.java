@@ -18,6 +18,8 @@ public class Sticker {
     private final String word;
     private final String text;
     private final String abilitySVar;
+    private final String keywords;
+    private final String triggers;
     private final int power;
     private final int toughness;
 
@@ -43,6 +45,8 @@ public class Sticker {
         this.word = params.get("Word");
         this.text = params.get("Text");
         this.abilitySVar = params.get("Ability");
+        this.keywords = params.get("Keywords");
+        this.triggers = params.get("Triggers");
         this.power = intParam(params, "Power", 0);
         this.toughness = intParam(params, "Toughness", 0);
     }
@@ -91,6 +95,16 @@ public class Sticker {
         return abilitySVar;
     }
 
+    /** Keywords an ability sticker grants directly, comma separated, or null. */
+    public String getKeywords() {
+        return keywords;
+    }
+
+    /** SVars on the sheet holding triggers an ability sticker grants, comma separated, or null. */
+    public String getTriggers() {
+        return triggers;
+    }
+
     public int getPower() {
         return power;
     }
@@ -104,7 +118,7 @@ public class Sticker {
      * placing it would grant nothing. Stickers of every other kind are always placeable.
      */
     public boolean isImplemented() {
-        return kind != StickerKind.ABILITY || abilitySVar != null;
+        return kind != StickerKind.ABILITY || abilitySVar != null || keywords != null || triggers != null;
     }
 
     /** How this sticker reads to a player choosing one. */

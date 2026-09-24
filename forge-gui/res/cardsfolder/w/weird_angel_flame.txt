@@ -9,7 +9,7 @@ SVar:STK4:Kind$ Art
 SVar:STK5:Kind$ Art
 SVar:STK6:Kind$ Art
 SVar:STK7:Kind$ Ability | Tickets$ 2 | Text$ Heroic — Whenever you cast a spell that targets this permanent, put two +1/+1 counters on it.
-SVar:STK8:Kind$ Ability | Tickets$ 3 | Text$ Protection from even mana values
+SVar:STK8:Kind$ Ability | Tickets$ 3 | Text$ Protection from even mana values | Keywords$ Protection:Card.cmcM20:even mana values
 SVar:STK9:Kind$ PT | Tickets$ 2 | Power$ 2 | Toughness$ 3
 SVar:STK10:Kind$ PT | Tickets$ 5 | Power$ 7 | Toughness$ 8
 Oracle:{TK}{TK} — Heroic — Whenever you cast a spell that targets this permanent, put two +1/+1 counters on it.\n{TK}{TK}{TK} — Protection from even mana values\n{TK}{TK} — 2/3\n{TK}{TK}{TK}{TK}{TK} — 7/8

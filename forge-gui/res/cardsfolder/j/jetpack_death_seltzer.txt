@@ -8,7 +8,7 @@ SVar:STK3:Kind$ Name | Word$ Seltzer
 SVar:STK4:Kind$ Art
 SVar:STK5:Kind$ Art
 SVar:STK6:Kind$ Art
-SVar:STK7:Kind$ Ability | Tickets$ 2 | Text$ Trample
+SVar:STK7:Kind$ Ability | Tickets$ 2 | Text$ Trample | Keywords$ Trample
 SVar:STK8:Kind$ Ability | Tickets$ 3 | Text$ {3}: Monstrosity 3. (If this creature isn't monstrous, put three +1/+1 counters on it and it becomes monstrous.)
 SVar:STK9:Kind$ PT | Tickets$ 3 | Power$ 2 | Toughness$ 7
 SVar:STK10:Kind$ PT | Tickets$ 4 | Power$ 6 | Toughness$ 5

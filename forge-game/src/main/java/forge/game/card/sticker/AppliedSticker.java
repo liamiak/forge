@@ -1,6 +1,15 @@
 package forge.game.card.sticker;
 
+import java.util.Arrays;
+import java.util.List;
+
+import com.google.common.collect.Lists;
+
+import forge.game.ability.AbilityFactory;
 import forge.game.card.Card;
+import forge.game.spellability.SpellAbility;
+import forge.game.trigger.Trigger;
+import forge.game.trigger.TriggerHandler;
 
 /**
  * A sticker that is on an object, with the two things placing it decided: when, and - for a name
@@ -51,10 +60,38 @@ public class AppliedSticker {
         switch (sticker.getKind()) {
             case PT -> c.addNewPT(sticker.getPower(), sticker.getToughness(), timestamp, 0);
             case NAME -> c.recomputeStickerName();
-            // Ability stickers are granted once their sheet script carries a Forge ability;
-            // art stickers only ever act as a marker (CR 123.9).
+            case ABILITY -> grantAbility(c);
+            // An art sticker only ever acts as a marker (CR 123.9).
             default -> {
             }
+        }
+    }
+
+    /**
+     * CR 123.7 - the object gains the ability printed on the sticker. Keywords are granted
+     * directly; anything with its own script is built from an SVar on the sheet the sticker
+     * came from, which is also where any SVars it refers to live.
+     */
+    private void grantAbility(Card c) {
+        Card sheet = sticker.getSheet();
+        if (sticker.getKeywords() != null) {
+            c.addChangedCardKeywords(Arrays.asList(sticker.getKeywords().split(",")), null, false,
+                    timestamp, null);
+        }
+        List<SpellAbility> abilities = Lists.newArrayList();
+        List<Trigger> triggers = Lists.newArrayList();
+        if (sticker.getAbilitySVar() != null) {
+            for (String svar : sticker.getAbilitySVar().split(",")) {
+                abilities.add(AbilityFactory.getAbility(sheet.getSVar(svar.trim()), c, sheet));
+            }
+        }
+        if (sticker.getTriggers() != null) {
+            for (String svar : sticker.getTriggers().split(",")) {
+                triggers.add(TriggerHandler.parseTrigger(sheet.getSVar(svar.trim()), c, false, sheet));
+            }
+        }
+        if (!abilities.isEmpty() || !triggers.isEmpty()) {
+            c.addChangedCardTraits(abilities, triggers, null, null, null, timestamp, 0);
         }
     }
 

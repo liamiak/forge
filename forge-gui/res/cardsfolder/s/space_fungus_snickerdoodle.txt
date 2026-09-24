@@ -8,8 +8,8 @@ SVar:STK3:Kind$ Name | Word$ Snickerdoodle
 SVar:STK4:Kind$ Art
 SVar:STK5:Kind$ Art
 SVar:STK6:Kind$ Art
-SVar:STK7:Kind$ Ability | Tickets$ 2 | Text$ Skulk (This creature can't be blocked by creatures with greater power.)
-SVar:STK8:Kind$ Ability | Tickets$ 3 | Text$ Battle cry (Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.)
+SVar:STK7:Kind$ Ability | Tickets$ 2 | Text$ Skulk (This creature can't be blocked by creatures with greater power.) | Keywords$ Skulk
+SVar:STK8:Kind$ Ability | Tickets$ 3 | Text$ Battle cry (Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.) | Keywords$ Battle cry
 SVar:STK9:Kind$ PT | Tickets$ 2 | Power$ 3 | Toughness$ 2
 SVar:STK10:Kind$ PT | Tickets$ 5 | Power$ 6 | Toughness$ 8
 Oracle:{TK}{TK} — Skulk (This creature can't be blocked by creatures with greater power.)\n{TK}{TK}{TK} — Battle cry (Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.)\n{TK}{TK} — 3/2\n{TK}{TK}{TK}{TK}{TK} — 6/8

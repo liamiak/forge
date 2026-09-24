@@ -168,4 +168,48 @@ public class StickerApplyTest extends AITest {
         assertFalse(inHand.isStickered(), "a hidden zone does not keep the sticker");
         assertEquals(inHand.getName(), "Grizzly Bears");
     }
+
+    /** CR 123.7 - an ability sticker grants the object the ability printed on it. */
+    @Test
+    public void testAbilityStickerGrantsItsKeyword() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        Card bear = addCard("Grizzly Bears", p);
+        assertFalse(bear.hasKeyword("Flying"));
+
+        // Ancestral Hot Dog Minotaur's second ability sticker is plain Flying.
+        Sticker flying = null;
+        for (Sticker s : sheet(p, "Ancestral Hot Dog Minotaur")) {
+            if (s.getKind() == StickerKind.ABILITY && "Flying".equals(s.getKeywords())) {
+                flying = s;
+            }
+        }
+        assertNotNull(flying, "that sheet should carry a Flying ability sticker");
+        assertTrue(flying.isImplemented(), "a keyword sticker is placeable");
+
+        bear.addSticker(new AppliedSticker(flying, game.getNextTimestamp()));
+        assertTrue(bear.hasKeyword("Flying"), "the bear should have gained flying");
+
+        // CR 123.5 - and keeps it moving to another public zone.
+        Card inGraveyard = game.getAction().moveTo(ZoneType.Graveyard, bear, null, null);
+        assertTrue(inGraveyard.isStickered());
+        assertTrue(inGraveyard.hasKeyword("Flying"), "the granted ability survives a public zone");
+    }
+
+    /** An ability sticker with no Forge ability yet is not offered as a choice. */
+    @Test
+    public void testUnwrittenAbilityStickerIsNotOffered() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        int unwritten = 0;
+        for (Sticker s : sheet(p, "Eldrazi Guacamole Tightrope")) {
+            if (s.getKind() == StickerKind.ABILITY && !s.isImplemented()) {
+                unwritten++;
+            }
+        }
+        assertTrue(unwritten > 0, "that sheet still has an ability sticker without a script");
+        for (Sticker s : StickerSheet.getAvailableStickers(p)) {
+            assertTrue(s.isImplemented(), s + " should not be offered");
+        }
+    }
 }

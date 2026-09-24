@@ -9,7 +9,7 @@ SVar:STK4:Kind$ Art
 SVar:STK5:Kind$ Art
 SVar:STK6:Kind$ Art
 SVar:STK7:Kind$ Ability | Tickets$ 2 | Text$ {T}: The next time target player would roll one or more dice this turn, instead they roll that many dice plus one, then you choose one of those rolls to ignore.
-SVar:STK8:Kind$ Ability | Tickets$ 3 | Text$ Protection from odd mana values
+SVar:STK8:Kind$ Ability | Tickets$ 3 | Text$ Protection from odd mana values | Keywords$ Protection:Card.cmcM21:odd mana values
 SVar:STK9:Kind$ PT | Tickets$ 2 | Power$ 4 | Toughness$ 1
 SVar:STK10:Kind$ PT | Tickets$ 4 | Power$ 6 | Toughness$ 6
 Oracle:{TK}{TK} — {T}: The next time target player would roll one or more dice this turn, instead they roll that many dice plus one, then you choose one of those rolls to ignore.\n{TK}{TK}{TK} — Protection from odd mana values\n{TK}{TK} — 4/1\n{TK}{TK}{TK}{TK} — 6/6

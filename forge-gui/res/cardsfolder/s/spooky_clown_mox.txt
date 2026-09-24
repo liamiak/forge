@@ -8,7 +8,7 @@ SVar:STK3:Kind$ Name | Word$ Mox
 SVar:STK4:Kind$ Art
 SVar:STK5:Kind$ Art
 SVar:STK6:Kind$ Art
-SVar:STK7:Kind$ Ability | Tickets$ 2 | Text$ Vigilance
+SVar:STK7:Kind$ Ability | Tickets$ 2 | Text$ Vigilance | Keywords$ Vigilance
 SVar:STK8:Kind$ Ability | Tickets$ 4 | Text$ {1}, {T}: Tap target creature.
 SVar:STK9:Kind$ PT | Tickets$ 2 | Power$ 1 | Toughness$ 5
 SVar:STK10:Kind$ PT | Tickets$ 3 | Power$ 5 | Toughness$ 4
