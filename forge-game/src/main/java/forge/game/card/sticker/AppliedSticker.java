@@ -7,7 +7,9 @@ import com.google.common.collect.Lists;
 
 import forge.game.ability.AbilityFactory;
 import forge.game.card.Card;
+import forge.game.card.CardState;
 import forge.game.spellability.SpellAbility;
+import forge.game.staticability.StaticAbility;
 import forge.game.trigger.Trigger;
 import forge.game.trigger.TriggerHandler;
 
@@ -74,6 +76,9 @@ public class AppliedSticker {
      */
     private void grantAbility(Card c) {
         Card sheet = sticker.getSheet();
+        // The sheet's state, not the sheet, so that an SVar the ability only reads when it
+        // resolves is still looked up on the sheet - the same wiring a static's AddAbility uses.
+        CardState sheetState = sheet.getCurrentState();
         if (sticker.getKeywords() != null) {
             c.addChangedCardKeywords(Arrays.asList(sticker.getKeywords().split(",")), null, false,
                     timestamp, null);
@@ -82,16 +87,22 @@ public class AppliedSticker {
         List<Trigger> triggers = Lists.newArrayList();
         if (sticker.getAbilitySVar() != null) {
             for (String svar : sticker.getAbilitySVar().split(",")) {
-                abilities.add(AbilityFactory.getAbility(sheet.getSVar(svar.trim()), c, sheet));
+                abilities.add(AbilityFactory.getAbility(sheetState.getSVar(svar.trim()), c, sheetState));
             }
         }
         if (sticker.getTriggers() != null) {
             for (String svar : sticker.getTriggers().split(",")) {
-                triggers.add(TriggerHandler.parseTrigger(sheet.getSVar(svar.trim()), c, false, sheet));
+                triggers.add(TriggerHandler.parseTrigger(sheetState.getSVar(svar.trim()), c, false, sheetState));
             }
         }
-        if (!abilities.isEmpty() || !triggers.isEmpty()) {
-            c.addChangedCardTraits(abilities, triggers, null, null, null, timestamp, 0);
+        List<StaticAbility> statics = Lists.newArrayList();
+        if (sticker.getStatics() != null) {
+            for (String svar : sticker.getStatics().split(",")) {
+                statics.add(StaticAbility.create(sheetState.getSVar(svar.trim()), c, sheetState, false));
+            }
+        }
+        if (!abilities.isEmpty() || !triggers.isEmpty() || !statics.isEmpty()) {
+            c.addChangedCardTraits(abilities, triggers, null, statics, null, timestamp, 0);
         }
     }
 
