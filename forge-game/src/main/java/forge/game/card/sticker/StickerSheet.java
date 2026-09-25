@@ -46,6 +46,14 @@ public final class StickerSheet {
      * moves to a hidden zone, because it is then on no object at all (CR 123.5).
      */
     public static List<Sticker> getAvailableStickers(Player p) {
+        return getAvailableStickers(p, p.getCounters(CounterEnumType.TICKET));
+    }
+
+    /**
+     * The stickers a player may choose from when the tickets they have to spend are not the
+     * tickets in front of them - Pin Collection places one without paying for it.
+     */
+    public static List<Sticker> getAvailableStickers(Player p, int tickets) {
         Set<String> onSomething = new HashSet<>();
         for (Card c : p.getAllCards()) {
             for (AppliedSticker applied : c.getStickers()) {
@@ -57,7 +65,7 @@ public final class StickerSheet {
             for (Sticker s : getStickers(sheet)) {
                 // CR 123.3c - a sticker they cannot pay the ticket cost of is not a legal choice.
                 if (!onSomething.contains(identity(s)) && s.isImplemented()
-                        && s.getTickets() <= p.getCounters(CounterEnumType.TICKET)) {
+                        && s.getTickets() <= tickets) {
                     available.add(s);
                 }
             }

@@ -6,6 +6,7 @@ import java.util.Map;
 
 import forge.game.Game;
 import forge.game.ability.AbilityKey;
+import forge.game.ability.AbilityUtils;
 import forge.game.ability.SpellAbilityEffect;
 import forge.game.card.Card;
 import forge.game.card.CardCollection;
@@ -29,6 +30,8 @@ import org.apache.commons.lang3.StringUtils;
  * <ul>
  *   <li>{@code Kind$ Name|Art|Ability|PT} - restrict the choice to one kind of sticker.</li>
  *   <li>{@code Optional$ True} - the player may decline.</li>
+ *   <li>{@code MaxTickets$ N} - offer only stickers costing that many tickets or fewer.</li>
+ *   <li>{@code NoTicketCost$ True} - place it without paying the ticket cost.</li>
  * </ul>
  * The effect records {@code StickersPlaced} on the ability, and for a name sticker also
  * {@code StickerWord}, {@code StickerUniqueVowels} and {@code StickerLetters}, so a sub-ability
@@ -103,8 +106,16 @@ public class PutStickerEffect extends SpellAbilityEffect {
                 continue;
             }
 
+            // CR 123.3c - normally only stickers the owner can pay for, but a card may waive the
+            // cost, and may cap how expensive a sticker it offers.
+            final boolean free = sa.hasParam("NoTicketCost");
+            int affordable = free ? Integer.MAX_VALUE : owner.getCounters(CounterEnumType.TICKET);
+            if (sa.hasParam("MaxTickets")) {
+                affordable = Math.min(affordable,
+                        AbilityUtils.calculateAmount(sa.getHostCard(), sa.getParam("MaxTickets"), sa));
+            }
             List<Sticker> options = new ArrayList<>();
-            for (Sticker s : StickerSheet.getAvailableStickers(owner)) {
+            for (Sticker s : StickerSheet.getAvailableStickers(owner, affordable)) {
                 if (only == null || s.getKind() == only) {
                     options.add(s);
                 }
@@ -119,7 +130,7 @@ public class PutStickerEffect extends SpellAbilityEffect {
             }
 
             // CR 123.3c - the owner pays the sticker's ticket cost to place it.
-            if (chosen.getTickets() > 0) {
+            if (chosen.getTickets() > 0 && !free) {
                 owner.subtractCounter(CounterEnumType.TICKET, chosen.getTickets(), owner);
             }
 

@@ -29,6 +29,8 @@ import forge.game.StaticEffect;
 import forge.game.ability.AbilityUtils;
 import forge.game.ability.ApiType;
 import forge.game.card.*;
+import forge.game.card.sticker.AppliedSticker;
+import forge.game.card.sticker.StickerKind;
 import forge.game.cost.Cost;
 import forge.card.mana.ManaCost;
 import forge.game.keyword.Keyword;
@@ -115,6 +117,7 @@ public final class StaticAbilityContinuous {
         Integer setToughness = null;
 
         List<String> addKeywords = null;
+        final List<AppliedSticker> stickerAbilities = Lists.newArrayList();
         List<String> addHiddenKeywords = Lists.newArrayList();
         List<String> removeKeywords = null;
         String[] addAbilities = null;
@@ -307,6 +310,33 @@ public final class StaticAbilityContinuous {
                 }
                 if (!kwToShare.isEmpty()) {
                     addKeywords = kwToShare;
+                }
+            }
+
+            // Pin Collection and Clandestine Chameleon: an object has the abilities printed on
+            // ability stickers that are on some other object.
+            if (params.containsKey("GainsStickerAbilitiesOf") || params.containsKey("GainsStickerAbilitiesOfDefined")) {
+                CardCollection sources = cardsGainedFrom(params.containsKey("GainsStickerAbilitiesOfDefined")
+                        ? "GainsStickerAbilitiesOfDefined" : "GainsStickerAbilitiesOf", params, hostCard, stAb, game);
+                for (Card source : sources) {
+                    for (AppliedSticker applied : source.getStickers()) {
+                        if (applied.getKind() == StickerKind.ABILITY) {
+                            stickerAbilities.add(applied);
+                        }
+                    }
+                }
+                if (!stickerAbilities.isEmpty()) {
+                    List<String> stickerKeywords = Lists.newArrayList();
+                    for (AppliedSticker applied : stickerAbilities) {
+                        applied.collectGranted(hostCard, stickerKeywords,
+                                Lists.newArrayList(), Lists.newArrayList(), Lists.newArrayList());
+                    }
+                    if (!stickerKeywords.isEmpty()) {
+                        if (addKeywords == null) {
+                            addKeywords = Lists.newArrayList();
+                        }
+                        addKeywords.addAll(stickerKeywords);
+                    }
                 }
             }
 
@@ -773,6 +803,11 @@ public final class StaticAbilityContinuous {
                 List<ReplacementEffect> addedReplacementEffects = Lists.newArrayList();
                 List<Trigger> addedTrigger = Lists.newArrayList();
                 List<StaticAbility> addedStaticAbility = Lists.newArrayList();
+                for (AppliedSticker applied : stickerAbilities) {
+                    applied.collectGranted(affectedCard, Lists.newArrayList(), addedAbilities,
+                            addedTrigger, addedStaticAbility);
+                }
+
                 // add abilities
                 if (addAbilities != null) {
                     for (String ability : addAbilities) {

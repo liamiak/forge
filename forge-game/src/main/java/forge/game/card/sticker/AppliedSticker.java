@@ -75,16 +75,33 @@ public class AppliedSticker {
      * came from, which is also where any SVars it refers to live.
      */
     private void grantAbility(Card c) {
-        Card sheet = sticker.getSheet();
-        // The sheet's state, not the sheet, so that an SVar the ability only reads when it
-        // resolves is still looked up on the sheet - the same wiring a static's AddAbility uses.
-        CardState sheetState = sheet.getCurrentState();
-        if (sticker.getKeywords() != null) {
-            c.addChangedCardKeywords(Arrays.asList(sticker.getKeywords().split(",")), null, false,
-                    timestamp, null);
-        }
+        List<String> keywords = Lists.newArrayList();
         List<SpellAbility> abilities = Lists.newArrayList();
         List<Trigger> triggers = Lists.newArrayList();
+        List<StaticAbility> statics = Lists.newArrayList();
+        collectGranted(c, keywords, abilities, triggers, statics);
+
+        if (!keywords.isEmpty()) {
+            c.addChangedCardKeywords(keywords, null, false, timestamp, null);
+        }
+        if (!abilities.isEmpty() || !triggers.isEmpty() || !statics.isEmpty()) {
+            c.addChangedCardTraits(abilities, triggers, null, statics, null, timestamp, 0);
+        }
+    }
+
+    /**
+     * Builds what this sticker's printed ability grants, against the given card, without
+     * applying any of it. The cards that hand an object the abilities of stickers sitting on a
+     * different object build the same traits this way.
+     */
+    public void collectGranted(Card c, List<String> keywords, List<SpellAbility> abilities,
+            List<Trigger> triggers, List<StaticAbility> statics) {
+        // The sheet's state, not the sheet, so that an SVar the ability only reads when it
+        // resolves is still looked up on the sheet - the same wiring a static's AddAbility uses.
+        CardState sheetState = sticker.getSheet().getCurrentState();
+        if (sticker.getKeywords() != null) {
+            keywords.addAll(Arrays.asList(sticker.getKeywords().split(",")));
+        }
         if (sticker.getAbilitySVar() != null) {
             for (String svar : sticker.getAbilitySVar().split(",")) {
                 abilities.add(AbilityFactory.getAbility(sheetState.getSVar(svar.trim()), c, sheetState));
@@ -95,14 +112,10 @@ public class AppliedSticker {
                 triggers.add(TriggerHandler.parseTrigger(sheetState.getSVar(svar.trim()), c, false, sheetState));
             }
         }
-        List<StaticAbility> statics = Lists.newArrayList();
         if (sticker.getStatics() != null) {
             for (String svar : sticker.getStatics().split(",")) {
                 statics.add(StaticAbility.create(sheetState.getSVar(svar.trim()), c, sheetState, false));
             }
-        }
-        if (!abilities.isEmpty() || !triggers.isEmpty() || !statics.isEmpty()) {
-            c.addChangedCardTraits(abilities, triggers, null, statics, null, timestamp, 0);
         }
     }
 

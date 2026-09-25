@@ -5,6 +5,7 @@ import java.util.List;
 import forge.StaticData;
 import forge.deck.DeckSection;
 import forge.game.Game;
+import forge.game.ability.AbilityFactory;
 import forge.game.ability.AbilityKey;
 import forge.game.ability.AbilityUtils;
 import forge.game.card.Card;
@@ -25,6 +26,7 @@ import forge.item.PaperCard;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -39,7 +41,8 @@ public class StickerTicketCardTest extends AITest {
             "Finishing Move", "Robo-Piñata", "Command Performance", "Costume Shop",
             "Done for the Day", "Park Bleater", "Lineprancers", "Tusk and Whiskers",
             "Wolf in _____ Clothing", "Fight the _____ Fight",
-            "Ambassador Blorpityblorpboop", "Roxi, Publicist to the Stars");
+            "Ambassador Blorpityblorpboop", "Roxi, Publicist to the Stars",
+            "Pin Collection", "Clandestine Chameleon");
 
     private Card giveSheet(Player p, String sheetName) {
         PaperCard pc = StaticData.instance().getVariantCards().getCard(sheetName);
@@ -285,6 +288,71 @@ public class StickerTicketCardTest extends AITest {
         // And the opponent's sticker is counted for them, not ignored altogether.
         assertEquals(AbilityUtils.calculateAmount(ambassador, "Count$StickerPower Permanent", animate),
                 pts.get(0).getPower() + pts.get(1).getPower());
+    }
+
+    /**
+     * Pin Collection and Clandestine Chameleon both hand an object the abilities printed on
+     * ability stickers sitting on a different object.
+     */
+    @Test
+    public void testStickerAbilitiesCarryToAnotherObject() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        Card sheet = giveSheet(p, "Ancestral Hot Dog Minotaur");
+        Sticker flying = StickerSheet.getStickers(sheet).stream()
+                .filter(x -> "Flying".equals(x.getKeywords())).findFirst().orElseThrow();
+
+        Card pins = addCard("Pin Collection", p);
+        Card bear = addCard("Grizzly Bears", p);
+        pins.attachToEntity(bear, null);
+        game.getAction().checkStateEffects(true);
+        assertEquals(bear.getNetPower(), 3, "equipped creature gets +1/+1");
+        assertFalse(bear.hasKeyword("Flying"), "no sticker on the Equipment yet");
+
+        pins.addSticker(new AppliedSticker(flying, game.getNextTimestamp()));
+        game.getAction().checkStateEffects(true);
+        assertTrue(bear.hasKeyword("Flying"), "the sticker is on the Equipment, the creature has it");
+
+        // The Chameleon reads stickers on everything else you own, including the graveyard.
+        Card chameleon = addCard("Clandestine Chameleon", p);
+        game.getAction().checkStateEffects(true);
+        assertTrue(chameleon.hasKeyword("Flying"), "an ability sticker on another permanent you own");
+
+        Card corpse = addCardToZone("Grizzly Bears", p, ZoneType.Graveyard);
+        Sticker second = StickerSheet.getStickers(sheet).stream()
+                .filter(x -> x.getKind() == StickerKind.ABILITY && !x.equals(flying))
+                .findFirst().orElseThrow();
+        corpse.addSticker(new AppliedSticker(second, game.getNextTimestamp()));
+        game.getAction().checkStateEffects(true);
+        assertTrue(chameleon.getKeywords().size() > 1
+                        || chameleon.getSpellAbilities().size() > 0
+                        || chameleon.getTriggers().size() > 0,
+                "and one in your graveyard");
+    }
+
+    /**
+     * Pin Collection places a sticker it does not pay for, and only one it could afford at X.
+     * The card's own X comes from how it was cast, so the two parameters are exercised here
+     * rather than through the card.
+     */
+    @Test
+    public void testStickerCanBeCappedAndFree() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        giveSheet(p, "Eldrazi Guacamole Tightrope");
+        assertEquals(p.getCounters(CounterEnumType.TICKET), 0, "and no tickets to spend");
+
+        Card bear = addCard("Grizzly Bears", p);
+        SpellAbility put = AbilityFactory.getAbility(
+                "DB$ PutSticker | Kind$ Ability | Defined$ Self | MaxTickets$ 2 | NoTicketCost$ True", bear);
+        put.setActivatingPlayer(p);
+        AbilityUtils.resolve(put);
+
+        assertTrue(bear.isStickered(), "a sticker it cannot pay for is still placed");
+        Sticker placed = bear.getStickers().get(0).getSticker();
+        assertEquals(placed.getKind(), StickerKind.ABILITY);
+        assertTrue(placed.getTickets() <= 2, "MaxTickets should have kept the 5-ticket one out");
+        assertEquals(p.getCounters(CounterEnumType.TICKET), 0, "and nothing was paid");
     }
 
     /** Puts a sticker of the given kind on a card the way PutStickerEffect does. */
