@@ -1770,6 +1770,12 @@ public class AbilityUtils {
                     }
                     return count;
                 }
+                // Count$TriggeredManaCostGeneric
+                if (sq[0].startsWith("TriggeredManaCostGeneric")) {
+                    final SpellAbility root = sa.getRootAbility();
+                    Card triggeringObject = (Card) root.getTriggeringObject(AbilityKey.Card);
+                    return triggeringObject.getManaCost().getGenericCost();
+                }
                 // Count$TriggeredManaCostDevotion.<Color>
                 if (sq[0].startsWith("TriggeredManaCostDevotion")) {
                     final SpellAbility root = sa.getRootAbility();
@@ -2105,6 +2111,10 @@ public class AbilityUtils {
         }
         if (sq[0].equals("CardBaseToughness")) {
             return doXMath(c.getCurrentToughness(), expr, c, ctb);
+        }
+        if (sq[0].equals("CardTypeCount")) {
+            CardTypeView t = c.getType();
+            return doXMath(t.getSupertypes().size() + t.getCoreTypes().size() + t.getSubtypes().size(), expr, c, ctb);
         }
         if (sq[0].equals("CardSumPT")) {
             return doXMath(c.getNetPower() + c.getNetToughness(), expr, c, ctb);

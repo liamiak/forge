@@ -1435,7 +1435,8 @@ public class CardProperty {
             }
         } else if (property.startsWith("power") || property.startsWith("toughness") || property.startsWith("cmc")
                 || property.startsWith("totalPT") || property.startsWith("numColors")
-                || property.startsWith("basePower") || property.startsWith("baseToughness") || property.startsWith("numTypes")) {
+                || property.startsWith("basePower") || property.startsWith("baseToughness") || property.startsWith("numTypes")
+                || property.startsWith("numCreatureTypes")) {
             int x;
             int y = 0;
             String rhs = "";
@@ -1464,6 +1465,9 @@ public class CardProperty {
             } else if (property.startsWith("numTypes")) {
                 rhs = property.substring(10);
                 y = Iterables.size(card.getType().getCoreTypes());
+            } else if (property.startsWith("numCreatureTypes")) {
+                rhs = property.substring(18);
+                y = card.getType().getCreatureTypes().size();
             }
             if (rhs.equals("Chosen")) {
                 if (!source.hasChosenNumber()) {
