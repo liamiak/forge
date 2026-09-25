@@ -11,6 +11,7 @@ import forge.game.ability.SpellAbilityEffect;
 import forge.game.card.Card;
 import forge.game.card.CardCollection;
 import forge.game.card.CardLists;
+import forge.game.card.CardPredicates;
 import forge.game.card.CounterEnumType;
 import forge.game.card.sticker.AppliedSticker;
 import forge.game.card.sticker.Sticker;
@@ -34,14 +35,15 @@ import org.apache.commons.lang3.StringUtils;
  *   <li>{@code NoTicketCost$ True} - place it without paying the ticket cost.</li>
  * </ul>
  * The effect records {@code StickersPlaced} on the ability, and for a name sticker also
- * {@code StickerWord}, {@code StickerUniqueVowels} and {@code StickerLetters}, so a sub-ability
- * can read them the way a die roll's sub-abilities read its result.
+ * {@code StickerUniqueVowels}, so a sub-ability can read them the way a die roll's
+ * sub-abilities read its result.
  */
 public class PutStickerEffect extends SpellAbilityEffect {
 
-    private static final String VOWELS = "AEIOUY";
     /** How many stickers this resolution placed, for the cards that say "when you do". */
     private static final String PLACED = "StickersPlaced";
+    /** The unique vowels in the name sticker just placed, for the cards that count them. */
+    private static final String VOWELS = "StickerUniqueVowels";
 
     @Override
     protected String getStackDescription(SpellAbility sa) {
@@ -69,7 +71,7 @@ public class PutStickerEffect extends SpellAbilityEffect {
         CardCollection pool = CardLists.getValidCards(game.getCardsIn(zone), sa.getParam("Choices"),
                 chooser, sa.getHostCard(), sa);
         // CR 123.3b - only an object its owner owns can be stickered, so never offer the rest.
-        pool = CardLists.filter(pool, c -> chooser.equals(c.getOwner()));
+        pool = CardLists.filter(pool, CardPredicates.isOwner(chooser));
         if (pool.isEmpty()) {
             return new CardCollection();
         }
@@ -91,7 +93,7 @@ public class PutStickerEffect extends SpellAbilityEffect {
         final boolean optional = sa.hasParam("Optional");
         // The same ability object resolves again and again, so clear what the last resolution
         // recorded before anything can read it.
-        recordNameStickerValues(sa, null);
+        sa.setSVar(VOWELS, "0");
         sa.setSVar(PLACED, "0");
         int placed = 0;
 
@@ -136,14 +138,10 @@ public class PutStickerEffect extends SpellAbilityEffect {
 
             int position = 0;
             if (chosen.getKind() == StickerKind.NAME) {
-                int words = StringUtils.isBlank(target.getName()) ? 0 : target.getName().split(" ").length;
-                position = owner.getController().chooseStickerNamePosition(chosen, target, words);
+                position = owner.getController().chooseStickerNamePosition(chosen, target);
+                sa.setSVar(VOWELS, Integer.toString(chosen.getUniqueVowelCount()));
             }
             target.addSticker(new AppliedSticker(chosen, game.getNextTimestamp(), position));
-
-            if (chosen.getKind() == StickerKind.NAME) {
-                recordNameStickerValues(sa, chosen.getWord());
-            }
             sa.setSVar(PLACED, Integer.toString(++placed));
 
             final Map<AbilityKey, Object> runParams = AbilityKey.newMap();
@@ -153,19 +151,5 @@ public class PutStickerEffect extends SpellAbilityEffect {
             game.getTriggerHandler().runTrigger(TriggerType.StickerPlaced, runParams, false);
             game.getTriggerHandler().runWaitingTriggers();
         }
-    }
-
-    /** Values a card may ask about the name sticker it just placed. */
-    private static void recordNameStickerValues(SpellAbility sa, String word) {
-        String letters = word == null ? "" : word.replaceAll("[^A-Za-z]", "");
-        int unique = 0;
-        for (char v : VOWELS.toCharArray()) {
-            if (letters.toUpperCase().indexOf(v) >= 0) {
-                unique++;
-            }
-        }
-        sa.setSVar("StickerWord", word == null ? "" : word);
-        sa.setSVar("StickerLetters", Integer.toString(letters.length()));
-        sa.setSVar("StickerUniqueVowels", Integer.toString(unique));
     }
 }

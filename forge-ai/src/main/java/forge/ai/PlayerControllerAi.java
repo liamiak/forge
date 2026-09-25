@@ -730,7 +730,7 @@ public class PlayerControllerAi extends PlayerController {
                 case PT -> 1000 + (s.getPower() + s.getToughness()
                         - target.getNetPower() - target.getNetToughness()) * 10;
                 case ABILITY -> 500;
-                case NAME -> 100 + countUniqueVowels(s.getWord());
+                case NAME -> 100 + s.getUniqueVowelCount();
                 case ART -> 50;
             };
             score -= s.getTickets();
@@ -742,21 +742,9 @@ public class PlayerControllerAi extends PlayerController {
         return best;
     }
 
-    private static int countUniqueVowels(String word) {
-        if (word == null) {
-            return 0;
-        }
-        int unique = 0;
-        for (char v : "AEIOUY".toCharArray()) {
-            if (word.toUpperCase().indexOf(v) >= 0) {
-                unique++;
-            }
-        }
-        return unique;
-    }
 
     @Override
-    public int chooseStickerNamePosition(Sticker sticker, Card target, int wordCount) {
+    public int chooseStickerNamePosition(Sticker sticker, Card target) {
         // Position only changes the printed name, so put the word at the front.
         return 0;
     }

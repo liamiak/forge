@@ -8,6 +8,8 @@ import com.google.common.collect.Lists;
 import forge.game.ability.AbilityFactory;
 import forge.game.card.Card;
 import forge.game.card.CardState;
+import forge.game.card.CardTraitChanges;
+import forge.game.card.perpetual.PerpetualInterface;
 import forge.game.spellability.SpellAbility;
 import forge.game.staticability.StaticAbility;
 import forge.game.trigger.Trigger;
@@ -21,7 +23,7 @@ import forge.game.trigger.TriggerHandler;
  * between public zones. If the name later has fewer words than that, the word goes on the end
  * instead (CR 123.6c).
  */
-public class AppliedSticker {
+public class AppliedSticker implements PerpetualInterface {
     private final Sticker sticker;
     private final long timestamp;
     private final int namePosition;
@@ -40,6 +42,7 @@ public class AppliedSticker {
         return sticker;
     }
 
+    @Override
     public long getTimestamp() {
         return timestamp;
     }
@@ -58,13 +61,14 @@ public class AppliedSticker {
      * every name sticker on a card contributes to one name, so the card recomputes the whole
      * name instead - see {@link Card#recomputeStickerName}.
      */
+    @Override
     public void applyEffect(Card c) {
         switch (sticker.getKind()) {
             case PT -> c.addNewPT(sticker.getPower(), sticker.getToughness(), timestamp, 0);
             case NAME -> c.recomputeStickerName();
             case ABILITY -> grantAbility(c);
             // An art sticker only ever acts as a marker (CR 123.9).
-            default -> {
+            case ART -> {
             }
         }
     }
@@ -75,36 +79,38 @@ public class AppliedSticker {
      * came from, which is also where any SVars it refers to live.
      */
     private void grantAbility(Card c) {
-        List<String> keywords = Lists.newArrayList();
-        List<SpellAbility> abilities = Lists.newArrayList();
-        List<Trigger> triggers = Lists.newArrayList();
-        List<StaticAbility> statics = Lists.newArrayList();
-        collectGranted(c, keywords, abilities, triggers, statics);
-
+        List<String> keywords = getGrantedKeywords();
         if (!keywords.isEmpty()) {
             c.addChangedCardKeywords(keywords, null, false, timestamp, null);
         }
-        if (!abilities.isEmpty() || !triggers.isEmpty() || !statics.isEmpty()) {
-            c.addChangedCardTraits(abilities, triggers, null, statics, null, timestamp, 0);
+        CardTraitChanges traits = getGrantedTraits(c);
+        if (!traits.getAbilities().isEmpty() || !traits.getTriggers().isEmpty()
+                || !traits.getStaticAbilities().isEmpty()) {
+            c.addChangedCardTraits(traits, timestamp, 0, true);
         }
     }
 
+    /** The keywords this sticker prints, which do not depend on what it is on. */
+    public List<String> getGrantedKeywords() {
+        return sticker.getKeywords() == null ? List.of()
+                : Arrays.asList(sticker.getKeywords().split(","));
+    }
+
     /**
-     * Builds what this sticker's printed ability grants, against the given card, without
-     * applying any of it. The cards that hand an object the abilities of stickers sitting on a
-     * different object build the same traits this way.
+     * What this sticker's printed ability grants the given card, built but not applied. The
+     * cards that hand an object the abilities of stickers on a different object build the same
+     * changes this way.
      */
-    public void collectGranted(Card c, List<String> keywords, List<SpellAbility> abilities,
-            List<Trigger> triggers, List<StaticAbility> statics) {
+    public CardTraitChanges getGrantedTraits(Card c) {
         // The sheet's state, not the sheet, so that an SVar the ability only reads when it
         // resolves is still looked up on the sheet - the same wiring a static's AddAbility uses.
         CardState sheetState = sticker.getSheet().getCurrentState();
-        if (sticker.getKeywords() != null) {
-            keywords.addAll(Arrays.asList(sticker.getKeywords().split(",")));
-        }
+        List<SpellAbility> abilities = Lists.newArrayList();
+        List<Trigger> triggers = Lists.newArrayList();
+        List<StaticAbility> statics = Lists.newArrayList();
         if (sticker.getAbilitySVar() != null) {
             for (String svar : sticker.getAbilitySVar().split(",")) {
-                abilities.add(AbilityFactory.getAbility(sheetState.getSVar(svar.trim()), c, sheetState));
+                abilities.add(AbilityFactory.getAbility(c, svar.trim(), sheetState));
             }
         }
         if (sticker.getTriggers() != null) {
@@ -117,6 +123,7 @@ public class AppliedSticker {
                 statics.add(StaticAbility.create(sheetState.getSVar(svar.trim()), c, sheetState, false));
             }
         }
+        return new CardTraitChanges(abilities, triggers, null, statics, null);
     }
 
     @Override

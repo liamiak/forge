@@ -1336,11 +1336,8 @@ public class CardProperty {
             }
         } else if (property.equals("stickered")) {
             // CR 123.4 - an object is "stickered" while it has any kind of sticker on it.
+            // A card that wants the opposite writes !stickered, as every other property does.
             if (!card.isStickered()) {
-                return false;
-            }
-        } else if (property.equals("nonStickered")) {
-            if (card.isStickered()) {
                 return false;
             }
         } else if (property.startsWith("stickeredWith ")) {

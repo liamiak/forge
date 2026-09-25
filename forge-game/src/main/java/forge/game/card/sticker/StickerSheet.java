@@ -1,6 +1,7 @@
 package forge.game.card.sticker;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -24,6 +25,9 @@ import forge.game.keyword.KeywordInterface;
  */
 public final class StickerSheet {
     private static final String KEYWORD = "StickerSheet:";
+    /** The zones a sticker survives in - CR 123.5 drops it anywhere hidden. */
+    private static final EnumSet<ZoneType> PUBLIC_ZONES = EnumSet.of(ZoneType.Battlefield,
+            ZoneType.Graveyard, ZoneType.Exile, ZoneType.Command, ZoneType.Stack);
 
     private StickerSheet() {
     }
@@ -31,11 +35,6 @@ public final class StickerSheet {
     /** True if this card is a sticker sheet rather than a card. */
     public static boolean isSheet(Card c) {
         return c != null && c.getType().isStickers();
-    }
-
-    /** The sheets a player currently has access to - CR 123.2c. */
-    public static List<Card> getAccessibleSheets(Player p) {
-        return new ArrayList<>(p.getCardsIn(ZoneType.StickerSheets));
     }
 
     /**
@@ -54,23 +53,45 @@ public final class StickerSheet {
      * tickets in front of them - Pin Collection places one without paying for it.
      */
     public static List<Sticker> getAvailableStickers(Player p, int tickets) {
+        List<Sticker> available = new ArrayList<>();
+        collectAvailable(p, tickets, available);
+        return available;
+    }
+
+    /**
+     * Whether the player has any sticker to choose at all. The AI asks this every time it
+     * evaluates an ability that would place one, so it stops at the first answer.
+     */
+    public static boolean hasAvailableSticker(Player p) {
+        return collectAvailable(p, p.getCounters(CounterEnumType.TICKET), null);
+    }
+
+    /** @return whether any sticker was available; fills {@code out} when it is given one. */
+    private static boolean collectAvailable(Player p, int tickets, List<Sticker> out) {
         Set<String> onSomething = new HashSet<>();
-        for (Card c : p.getAllCards()) {
+        // A sticker only stays on an object in a public zone (CR 123.5), so nowhere else can
+        // hold one of theirs.
+        for (Card c : p.getCardsIn(PUBLIC_ZONES)) {
             for (AppliedSticker applied : c.getStickers()) {
                 onSomething.add(identity(applied.getSticker()));
             }
         }
-        List<Sticker> available = new ArrayList<>();
-        for (Card sheet : getAccessibleSheets(p)) {
+        boolean any = false;
+        // CR 123.2c - only the sheets revealed before the game are ever accessible.
+        for (Card sheet : p.getCardsIn(ZoneType.StickerSheets)) {
             for (Sticker s : getStickers(sheet)) {
                 // CR 123.3c - a sticker they cannot pay the ticket cost of is not a legal choice.
-                if (!onSomething.contains(identity(s)) && s.isImplemented()
-                        && s.getTickets() <= tickets) {
-                    available.add(s);
+                if (onSomething.contains(identity(s)) || !s.isImplemented() || s.getTickets() > tickets) {
+                    continue;
                 }
+                if (out == null) {
+                    return true;
+                }
+                out.add(s);
+                any = true;
             }
         }
-        return available;
+        return any;
     }
 
     /** CR 123.3a - a sticker is its sheet and its slot, never its text. */
@@ -81,12 +102,25 @@ public final class StickerSheet {
     /**
      * The stickers on one sheet, in printed order. Returns an empty list for anything that is
      * not a sheet, or a sheet whose script names no stickers.
+     * <p>
+     * A sheet's script never changes once the card is built, so the read is done once and kept
+     * on the card - the AI asks for this list every time it weighs an ability that would place
+     * a sticker.
      */
     public static List<Sticker> getStickers(Card sheet) {
-        List<Sticker> stickers = new ArrayList<>();
         if (!isSheet(sheet)) {
-            return stickers;
+            return List.of();
         }
+        List<Sticker> cached = sheet.getSheetStickers();
+        if (cached == null) {
+            cached = readStickers(sheet);
+            sheet.setSheetStickers(cached);
+        }
+        return cached;
+    }
+
+    private static List<Sticker> readStickers(Card sheet) {
+        List<Sticker> stickers = new ArrayList<>();
         for (KeywordInterface kw : sheet.getKeywords()) {
             String original = kw.getOriginal();
             if (original == null || !original.startsWith(KEYWORD)) {

@@ -287,7 +287,7 @@ public class StickerTicketCardTest extends AITest {
         assertEquals(AbilityUtils.calculateAmount(ambassador, "Y", animate), pts.get(0).getToughness());
 
         // And the opponent's sticker is counted for them, not ignored altogether.
-        assertEquals(AbilityUtils.calculateAmount(ambassador, "Count$StickerPower Permanent", animate),
+        assertEquals(AbilityUtils.calculateAmount(ambassador, "Count$Valid Permanent$StickerPower", animate),
                 pts.get(0).getPower() + pts.get(1).getPower());
     }
 

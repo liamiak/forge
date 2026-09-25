@@ -196,7 +196,7 @@ public class StickerAbilityTest extends AITest {
 
         // Grizzly Bears is a Creature Bear: two types in all.
         Card bear = addCard("Grizzly Bears", p);
-        assertEquals(AbilityUtils.calculateAmount(bear, "Count$CardTypeCount", null), 2);
+        assertEquals(AbilityUtils.calculateAmount(bear, "Count$ValidSelf Card$AllTypes", null), 2);
         // Elvish Archers is an Elf Archer, so it has the two creature types the sticker asks for.
         Card archers = addCard("Elvish Archers", p);
         assertTrue(archers.isValid("Creature.numCreatureTypesGE2", p, bear, null));

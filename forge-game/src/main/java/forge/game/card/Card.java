@@ -35,6 +35,7 @@ import forge.game.ability.ApiType;
 import forge.game.ability.SpellAbilityEffect;
 import forge.game.card.perpetual.PerpetualInterface;
 import forge.game.card.sticker.AppliedSticker;
+import forge.game.card.sticker.Sticker;
 import forge.game.card.sticker.StickerKind;
 import forge.game.combat.Combat;
 import forge.game.combat.CombatLki;
@@ -4599,6 +4600,15 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
     }
 
     private List<AppliedSticker> stickers = new ArrayList<>();
+    /** Read once from the script of a sticker sheet - see {@link StickerSheet#getStickers}. */
+    private List<Sticker> sheetStickers;
+
+    public final List<Sticker> getSheetStickers() {
+        return sheetStickers;
+    }
+    public final void setSheetStickers(final List<Sticker> read) {
+        sheetStickers = read;
+    }
 
     /** CR 123.4 - an object is "stickered" while it has any sticker on it. */
     public final boolean isStickered() {
@@ -4616,13 +4626,10 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
      * timestamps and name positions, and apply again there.
      */
     public final void setStickers(final Card oldCard) {
-        stickers = oldCard.getStickers();
+        stickers = new ArrayList<>(oldCard.getStickers());
         for (AppliedSticker s : stickers) {
             s.applyEffect(this);
         }
-    }
-    public final void clearStickers() {
-        stickers = new ArrayList<>();
     }
 
     /**
@@ -4647,13 +4654,20 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         if (StringUtils.isNotBlank(base)) {
             Collections.addAll(words, base.split(" "));
         }
-        long timestamp = 0;
         for (AppliedSticker s : nameStickers) {
-            int at = Math.min(s.getNamePosition(), words.size());
-            words.add(at, s.getSticker().getWord());
-            timestamp = s.getTimestamp();
+            insertWord(words, s.getSticker().getWord(), s.getNamePosition());
         }
-        addChangedName(String.join(" ", words), false, timestamp, 0);
+        addChangedName(String.join(" ", words),
+                false, nameStickers.get(nameStickers.size() - 1).getTimestamp(), 0);
+    }
+
+    /**
+     * CR 123.6b/c - a name sticker's word goes after that many of the words already there, or at
+     * the end if the name is now shorter than that. Shared with the prompt that asks a player
+     * where to put it, so the preview and the name they end up with are built the same way.
+     */
+    public static void insertWord(final List<String> words, final String word, final int position) {
+        words.add(Math.min(position, words.size()), word);
     }
 
     private List<PerpetualInterface> perpetual = new ArrayList<>();

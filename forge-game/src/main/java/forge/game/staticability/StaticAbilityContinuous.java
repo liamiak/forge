@@ -117,7 +117,7 @@ public final class StaticAbilityContinuous {
         Integer setToughness = null;
 
         List<String> addKeywords = null;
-        final List<AppliedSticker> stickerAbilities = Lists.newArrayList();
+        List<AppliedSticker> stickerAbilities = null;
         List<String> addHiddenKeywords = Lists.newArrayList();
         List<String> removeKeywords = null;
         String[] addAbilities = null;
@@ -320,22 +320,19 @@ public final class StaticAbilityContinuous {
                         ? "GainsStickerAbilitiesOfDefined" : "GainsStickerAbilitiesOf", params, hostCard, stAb, game);
                 for (Card source : sources) {
                     for (AppliedSticker applied : source.getStickers()) {
-                        if (applied.getKind() == StickerKind.ABILITY) {
-                            stickerAbilities.add(applied);
+                        if (applied.getKind() != StickerKind.ABILITY) {
+                            continue;
                         }
-                    }
-                }
-                if (!stickerAbilities.isEmpty()) {
-                    List<String> stickerKeywords = Lists.newArrayList();
-                    for (AppliedSticker applied : stickerAbilities) {
-                        applied.collectGranted(hostCard, stickerKeywords,
-                                Lists.newArrayList(), Lists.newArrayList(), Lists.newArrayList());
-                    }
-                    if (!stickerKeywords.isEmpty()) {
-                        if (addKeywords == null) {
-                            addKeywords = Lists.newArrayList();
+                        if (stickerAbilities == null) {
+                            stickerAbilities = Lists.newArrayList();
                         }
-                        addKeywords.addAll(stickerKeywords);
+                        stickerAbilities.add(applied);
+                        if (!applied.getGrantedKeywords().isEmpty()) {
+                            if (addKeywords == null) {
+                                addKeywords = Lists.newArrayList();
+                            }
+                            addKeywords.addAll(applied.getGrantedKeywords());
+                        }
                     }
                 }
             }
@@ -803,9 +800,13 @@ public final class StaticAbilityContinuous {
                 List<ReplacementEffect> addedReplacementEffects = Lists.newArrayList();
                 List<Trigger> addedTrigger = Lists.newArrayList();
                 List<StaticAbility> addedStaticAbility = Lists.newArrayList();
-                for (AppliedSticker applied : stickerAbilities) {
-                    applied.collectGranted(affectedCard, Lists.newArrayList(), addedAbilities,
-                            addedTrigger, addedStaticAbility);
+                if (stickerAbilities != null) {
+                    for (AppliedSticker applied : stickerAbilities) {
+                        CardTraitChanges granted = applied.getGrantedTraits(affectedCard);
+                        addedAbilities.addAll(granted.getAbilities());
+                        addedTrigger.addAll(granted.getTriggers());
+                        addedStaticAbility.addAll(granted.getStaticAbilities());
+                    }
                 }
 
                 // add abilities

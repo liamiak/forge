@@ -264,7 +264,7 @@ public abstract class PlayerController {
      * CR 123.6b - choose how many of the object's words precede the word a name sticker adds.
      * The answer ranges from 0 (first) to the number of words in the name (last).
      */
-    public abstract int chooseStickerNamePosition(Sticker sticker, Card target, int wordCount);
+    public abstract int chooseStickerNamePosition(Sticker sticker, Card target);
     public final String chooseSector(Card assignee, String ai) {
         final List<String> sectors = Arrays.asList("Alpha", "Beta", "Gamma");
         return chooseSector(assignee, ai, sectors);

@@ -21,25 +21,16 @@ import forge.game.spellability.SpellAbility;
  */
 public class PutStickerAi extends SpellAbilityAi {
 
-    private static AiAbilityDecision decide(Player ai, SpellAbility sa) {
-        if (StickerSheet.getAvailableStickers(ai).isEmpty()) {
-            return new AiAbilityDecision(0, AiPlayDecision.CantPlayAi);
-        }
-        if (sa.usesTargeting() && !chooseTarget(ai, sa)) {
-            return new AiAbilityDecision(0, AiPlayDecision.TargetingFailed);
-        }
-        return new AiAbilityDecision(100, AiPlayDecision.WillPlay);
-    }
-
     /**
      * Stickers can only go on something their owner owns (CR 123.3b), so the AI puts one on its
      * own best legal permanent, preferring one that is not stickered yet.
      */
     private static boolean chooseTarget(Player ai, SpellAbility sa) {
         sa.resetTargets();
+        // CR 123.3b - only its owner's objects are ever legal, so start from those; and
+        // getTargetableCards has already applied canTarget.
         CardCollection options = CardLists.getTargetableCards(
-                new CardCollection(ai.getGame().getCardsIn(sa.getTargetRestrictions().getZone())), sa);
-        options = CardLists.filter(options, c -> ai.equals(c.getOwner()) && sa.canTarget(c));
+                ai.getCardsIn(sa.getTargetRestrictions().getZone()), sa);
         if (options.isEmpty()) {
             return false;
         }
@@ -54,14 +45,20 @@ public class PutStickerAi extends SpellAbilityAi {
 
     @Override
     protected AiAbilityDecision checkApiLogic(final Player ai, final SpellAbility sa) {
-        return decide(ai, sa);
+        if (!StickerSheet.hasAvailableSticker(ai)) {
+            return new AiAbilityDecision(0, AiPlayDecision.CantPlayAi);
+        }
+        if (sa.usesTargeting() && !chooseTarget(ai, sa)) {
+            return new AiAbilityDecision(0, AiPlayDecision.TargetingFailed);
+        }
+        return new AiAbilityDecision(100, AiPlayDecision.WillPlay);
     }
 
     @Override
     public AiAbilityDecision chkDrawback(final Player ai, final SpellAbility sa) {
         // A sticker is worth taking even when the rest of the ability was the point, so a
         // drawback check that cannot find a target still lets the parent resolve.
-        if (StickerSheet.getAvailableStickers(ai).isEmpty()) {
+        if (!StickerSheet.hasAvailableSticker(ai)) {
             return new AiAbilityDecision(0, AiPlayDecision.WillPlay);
         }
         if (sa.usesTargeting()) {
@@ -81,6 +78,6 @@ public class PutStickerAi extends SpellAbilityAi {
     @Override
     public boolean confirmAction(Player player, SpellAbility sa, PlayerActionConfirmMode mode, String message,
             Map<String, Object> params) {
-        return !StickerSheet.getAvailableStickers(player).isEmpty();
+        return StickerSheet.hasAvailableSticker(player);
     }
 }

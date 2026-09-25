@@ -11,6 +11,9 @@ import forge.game.card.Card;
  * text: CR 123.3a makes two stickers distinct even when they read the same.
  */
 public class Sticker {
+    /** CR 702.x has no say here: the Un-cards that count vowels count Y as one. */
+    private static final String VOWELS = "AEIOUY";
+
     private final Card sheet;
     private final String slot;
     private final StickerKind kind;
@@ -85,6 +88,26 @@ public class Sticker {
     /** The word a name sticker adds. May be more than one word - CR 123.6. */
     public String getWord() {
         return word;
+    }
+
+    /** Just the letters of that word, which is what the cards that count them mean. */
+    public String getLetters() {
+        return word == null ? "" : word.replaceAll("[^A-Za-z]", "");
+    }
+
+    /**
+     * How many different vowels the word contains. The Un-cards that ask count Y as a vowel,
+     * which is why {@link forge.util.Lang}'s vowel helpers are no use here.
+     */
+    public int getUniqueVowelCount() {
+        String letters = getLetters().toUpperCase();
+        int unique = 0;
+        for (char v : VOWELS.toCharArray()) {
+            if (letters.indexOf(v) >= 0) {
+                unique++;
+            }
+        }
+        return unique;
     }
 
     /** The printed text of an ability sticker, for display. */

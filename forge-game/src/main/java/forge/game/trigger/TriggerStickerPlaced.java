@@ -17,6 +17,7 @@
  */
 package forge.game.trigger;
 
+import java.util.Arrays;
 import java.util.Map;
 
 import forge.game.ability.AbilityKey;
@@ -49,14 +50,9 @@ public class TriggerStickerPlaced extends Trigger {
         if (hasParam("StickerKind")) {
             // A comma separated list, so "if it's an art sticker, instead ..." can be written as
             // one trigger on Art and another on the kinds that are not Art.
-            boolean matched = false;
-            Object placed = runParams.get(AbilityKey.StickerKind);
-            for (String kind : getParam("StickerKind").split(",")) {
-                if (StickerKind.smartValueOf(kind.trim()) == placed) {
-                    matched = true;
-                }
-            }
-            if (!matched) {
+            final Object placed = runParams.get(AbilityKey.StickerKind);
+            if (Arrays.stream(getParam("StickerKind").split(","))
+                    .noneMatch(kind -> StickerKind.smartValueOf(kind.trim()) == placed)) {
                 return false;
             }
         }

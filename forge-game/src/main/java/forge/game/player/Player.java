@@ -24,6 +24,7 @@ import forge.StaticData;
 import forge.card.*;
 import forge.card.mana.ManaCost;
 import forge.card.mana.ManaCostShard;
+import forge.deck.DeckFormat;
 import forge.game.*;
 import forge.game.ability.AbilityFactory;
 import forge.game.ability.AbilityKey;
@@ -78,8 +79,6 @@ public class Player extends GameEntity implements Comparable<Player> {
             ZoneType.Sideboard, ZoneType.PlanarDeck, ZoneType.SchemeDeck, ZoneType.AttractionDeck, ZoneType.ContraptionDeck,
             ZoneType.Junkyard, ZoneType.StickerSheets, ZoneType.Merged, ZoneType.Subgame, ZoneType.None));
 
-    /** CR 123.2a - how many of a player's sticker sheets are chosen at random to be accessible. */
-    public static final int CHOSEN_STICKER_SHEETS = 3;
 
     private int life = 20;
     private int startingLife = 20;
@@ -3041,19 +3040,11 @@ public class Player extends GameEntity implements Comparable<Player> {
 
         // Sticker sheets - CR 123.2a: reveal them all, then three are chosen at random.
         // Only the chosen three are ever accessible (CR 123.2c), so the rest are not kept.
-        Iterable<PaperCard> sheets = registeredPlayer.getStickerSheets();
-        if (sheets != null) {
-            List<Card> revealed = new ArrayList<>();
-            for (IPaperCard cp : sheets) {
-                Card c = Card.fromPaperCard(cp, this);
-                c.setCollectible(false);
-                revealed.add(c);
-            }
-            Collections.shuffle(revealed, MyRandom.getRandom());
-            PlayerZone stickerSheets = getZone(ZoneType.StickerSheets);
-            for (Card c : revealed.subList(0, Math.min(CHOSEN_STICKER_SHEETS, revealed.size()))) {
-                stickerSheets.add(c);
-            }
+        PlayerZone stickerSheets = getZone(ZoneType.StickerSheets);
+        for (IPaperCard cp : Aggregates.random(registeredPlayer.getStickerSheets(), DeckFormat.CHOSEN_STICKER_SHEETS)) {
+            Card sheet = Card.fromPaperCard(cp, this);
+            sheet.setCollectible(false);
+            stickerSheets.add(sheet);
         }
 
         // Contraptions

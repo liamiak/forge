@@ -62,8 +62,9 @@ public enum DeckFormat {
         @Override
         public String getStickerSheetConformanceProblem(Deck deck) {
             //CR 123.2b - in limited, a player chooses up to three sheets from what they opened.
-            if (deck.get(DeckSection.Stickers).countAll() > 3)
-                return "must contain no more than 3 sticker sheets";
+            if (deck.get(DeckSection.Stickers).countAll() > CHOSEN_STICKER_SHEETS)
+                return TextUtil.concatWithSpace("must contain no more than",
+                        String.valueOf(CHOSEN_STICKER_SHEETS), "sticker sheets");
             return null;
         }
 
@@ -132,6 +133,9 @@ public enum DeckFormat {
     Planechase     ( Range.of(60, Integer.MAX_VALUE), Range.is(0), 4),
     Archenemy      ( Range.of(60, Integer.MAX_VALUE), Range.is(0), 4),
     Puzzle         ( Range.of(0, Integer.MAX_VALUE), Range.is(0), 4);
+
+    /** CR 123.2a - how many of a player's sticker sheets are chosen at random to be used. */
+    public static final int CHOSEN_STICKER_SHEETS = 3;
 
     private final Range<Integer> mainRange;
     private final Range<Integer> sideRange; // null => no check

@@ -507,7 +507,7 @@ public class PlayerControllerForTests extends PlayerController {
     }
 
     @Override
-    public int chooseStickerNamePosition(Sticker sticker, Card target, int wordCount) {
+    public int chooseStickerNamePosition(Sticker sticker, Card target) {
         return 0;
     }
 

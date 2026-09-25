@@ -1566,50 +1566,6 @@ public class AbilityUtils {
      *            a {@link forge.game.CardTraitBase} object.
      * @return a int.
      */
-    /** Counts the stickers on a card for the {@code CardStickers} Count$ family. */
-    private static int countStickers(Card c, String[] sq) {
-        String kind = sq.length > 1 ? sq[1] : null;
-        if (kind == null || kind.isEmpty()) {
-            return c.getStickers().size();
-        }
-        int count = 0;
-        for (AppliedSticker applied : c.getStickers()) {
-            Sticker s = applied.getSticker();
-            if ("NameMinLetters".equals(kind) || "NameMaxLetters".equals(kind) || "NameLetter".equals(kind)
-                    || "NameStartsWith".equals(kind)) {
-                if (s.getKind() != StickerKind.NAME || sq.length < 3) {
-                    continue;
-                }
-                String letters = s.getWord() == null ? "" : s.getWord().replaceAll("[^A-Za-z]", "");
-                if ("NameStartsWith".equals(kind)) {
-                    // The letter is either written out or the one the card's controller chose.
-                    String wantedLetter = "ChosenType".equals(sq[2]) ? c.getChosenType() : sq[2];
-                    if (!letters.isEmpty() && wantedLetter != null && !wantedLetter.isEmpty()
-                            && Character.toUpperCase(letters.charAt(0))
-                                    == Character.toUpperCase(wantedLetter.charAt(0))) {
-                        count++;
-                    }
-                } else if ("NameLetter".equals(kind)) {
-                    char wanted = Character.toUpperCase(sq[2].charAt(0));
-                    for (char ch : letters.toUpperCase().toCharArray()) {
-                        if (ch == wanted) {
-                            count++;
-                        }
-                    }
-                } else if ("NameMinLetters".equals(kind)) {
-                    if (letters.length() >= Integer.parseInt(sq[2])) {
-                        count++;
-                    }
-                } else if (letters.length() <= Integer.parseInt(sq[2])) {
-                    count++;
-                }
-            } else if (s.getKind() == StickerKind.smartValueOf(kind)) {
-                count++;
-            }
-        }
-        return count;
-    }
-
     public static int xCount(Card c, final String s, final CardTraitBase ctb) {
         final String s2 = applyAbilityTextChangeEffects(s, ctb);
         final String[] l = s2.split("/");
@@ -1992,24 +1948,6 @@ public class AbilityUtils {
         }
 
         // count valid cards in any specified zone/s
-        // Count$StickerPower <valid> / Count$StickerToughness <valid> - the power or toughness
-        // printed on the power and toughness stickers carried by the matching permanents.
-        if (sq[0].startsWith("StickerPower") || sq[0].startsWith("StickerToughness")) {
-            String[] lparts = paidparts[0].split(" ", 2);
-            Iterable<Card> stickered = CardLists.getValidCards(game.getCardsIn(ZoneType.Battlefield),
-                    lparts.length > 1 ? lparts[1] : "Permanent", player, c, ctb);
-            final boolean power = sq[0].startsWith("StickerPower");
-            int total = 0;
-            for (Card card : stickered) {
-                for (AppliedSticker applied : card.getStickers()) {
-                    if (applied.getKind() == StickerKind.PT) {
-                        total += power ? applied.getSticker().getPower() : applied.getSticker().getToughness();
-                    }
-                }
-            }
-            return doXMath(total, expr, c, ctb);
-        }
-
         if (sq[0].startsWith("Valid")) {
             String[] lparts = paidparts[0].split(" ", 2);
 
@@ -2138,10 +2076,6 @@ public class AbilityUtils {
         }
         if (sq[0].equals("CardBaseToughness")) {
             return doXMath(c.getCurrentToughness(), expr, c, ctb);
-        }
-        if (sq[0].equals("CardTypeCount")) {
-            CardTypeView t = c.getType();
-            return doXMath(t.getSupertypes().size() + t.getCoreTypes().size() + t.getSubtypes().size(), expr, c, ctb);
         }
         if (sq[0].equals("CardSumPT")) {
             return doXMath(c.getNetPower() + c.getNetToughness(), expr, c, ctb);
@@ -2963,6 +2897,66 @@ public class AbilityUtils {
         }
 
         return doXMath(num, expr, c, ctb);
+    }
+
+    /**
+     * Counts the stickers on a card for the {@code CardStickers} Count$ family - the whole
+     * sticker, or the name stickers whose word matches what the card asks about.
+     */
+    private static int countStickers(Card c, String[] sq) {
+        String kind = sq.length > 1 ? sq[1] : null;
+        if (kind == null || kind.isEmpty()) {
+            return c.getStickers().size();
+        }
+        String arg = sq.length > 2 ? sq[2] : null;
+        int count = 0;
+        for (AppliedSticker applied : c.getStickers()) {
+            Sticker s = applied.getSticker();
+            // The four Name* options all ask about a name sticker's word; anything else is a
+            // plain kind. Dispatch on the exact label - CardStickers.Name is a live option and
+            // must not fall into the letter counting.
+            if (s.getKind() == StickerKind.NAME && arg != null) {
+                String letters = s.getLetters();
+                switch (kind) {
+                    case "NameStartsWith" -> {
+                        String wanted = "ChosenType".equals(arg) ? c.getChosenType() : arg;
+                        if (!letters.isEmpty() && StringUtils.isNotEmpty(wanted)
+                                && Character.toUpperCase(letters.charAt(0))
+                                        == Character.toUpperCase(wanted.charAt(0))) {
+                            count++;
+                        }
+                        continue;
+                    }
+                    case "NameLetter" -> {
+                        char wanted = Character.toUpperCase(arg.charAt(0));
+                        for (int i = 0; i < letters.length(); i++) {
+                            if (Character.toUpperCase(letters.charAt(i)) == wanted) {
+                                count++;
+                            }
+                        }
+                        continue;
+                    }
+                    case "NameMinLetters" -> {
+                        if (letters.length() >= Integer.parseInt(arg)) {
+                            count++;
+                        }
+                        continue;
+                    }
+                    case "NameMaxLetters" -> {
+                        if (letters.length() <= Integer.parseInt(arg)) {
+                            count++;
+                        }
+                        continue;
+                    }
+                    default -> {
+                    }
+                }
+            }
+            if (s.getKind() == StickerKind.smartValueOf(kind)) {
+                count++;
+            }
+        }
+        return count;
     }
 
     public static final void applyManaColorConversion(ManaConversionMatrix matrix, String conversion) {
@@ -3797,6 +3791,20 @@ public class AbilityUtils {
                 return handlePaid(filtered, calcX[1], source, ctb);
             }
             return doXMath(filtered.size(), splitString.length > 1 ? splitString[1] : null, source, ctb);
+        }
+
+        // The power or toughness printed on the power and toughness stickers these cards carry.
+        if (def.startsWith("StickerPower") || def.startsWith("StickerToughness")) {
+            final boolean power = def.startsWith("StickerPower");
+            int total = 0;
+            for (Card c : paidList) {
+                for (AppliedSticker applied : c.getStickers()) {
+                    if (applied.getKind() == StickerKind.PT) {
+                        total += power ? applied.getSticker().getPower() : applied.getSticker().getToughness();
+                    }
+                }
+            }
+            return doXMath(total, CardFactoryUtil.extractOperators(def), source, ctb);
         }
 
         if (def.startsWith("AllTypes")) {

@@ -1414,20 +1414,23 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
     }
 
     @Override
-    public int chooseStickerNamePosition(Sticker sticker, Card target, int wordCount) {
-        if (wordCount == 0) {
+    public int chooseStickerNamePosition(Sticker sticker, Card target) {
+        if (StringUtils.isBlank(target.getName())) {
             return 0;
         }
         // CR 123.6b - offer every name the sticker could produce and let them pick one.
-        List<String> names = Lists.newArrayList();
-        String[] words = target.getName().split(" ");
-        for (int at = 0; at <= words.length; at++) {
-            List<String> parts = Lists.newArrayList(words);
-            parts.add(at, sticker.getWord());
-            names.add(String.join(" ", parts));
+        List<String> words = Lists.newArrayList(target.getName().split(" "));
+        List<Integer> positions = Lists.newArrayList();
+        for (int at = 0; at <= words.size(); at++) {
+            positions.add(at);
         }
-        String chosen = getGui().one(localizer.getMessage("lblChooseStickerNamePosition"), names);
-        return Math.max(0, names.indexOf(chosen));
+        Integer chosen = getGui().one(localizer.getMessage("lblChooseStickerNamePosition"), positions,
+                at -> {
+                    List<String> parts = Lists.newArrayList(words);
+                    Card.insertWord(parts, sticker.getWord(), at);
+                    return String.join(" ", parts);
+                });
+        return chosen == null ? 0 : chosen;
     }
 
     @Override
