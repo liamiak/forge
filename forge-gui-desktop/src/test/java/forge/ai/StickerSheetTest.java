@@ -24,6 +24,8 @@ import forge.game.player.Player;
 import forge.game.player.RegisteredPlayer;
 import forge.game.zone.ZoneType;
 import forge.item.PaperCard;
+import forge.localinstance.skin.FSkinProp;
+import forge.trackable.TrackableProperty;
 import forge.model.FModel;
 
 import org.apache.commons.lang3.StringUtils;
@@ -181,6 +183,24 @@ public class StickerSheetTest extends AITest {
     public void testNoSheets() {
         Player p = playerWithSheets(new ArrayList<>());
         assertEquals(p.getZone(ZoneType.StickerSheets).size(), 0);
+    }
+
+    /**
+     * Both deck editors build their sticker tab from the same three things: the section being
+     * offered for the game type, an icon for its tab, and a tracked zone for the in-game view.
+     * The mobile editor has no tests of its own, so these are what guard it.
+     */
+    @Test
+    public void testStickerSectionIsWiredForBothEditors() {
+        for (GameType type : new GameType[]{GameType.Constructed, GameType.Commander, GameType.Draft}) {
+            assertTrue(type.getSupplimentalDeckSections().contains(DeckSection.Stickers),
+                    type + " should offer a sticker sheet section");
+        }
+        assertEquals(FSkinProp.iconFromDeckSection(DeckSection.Stickers, false), FSkinProp.IMG_ZONE_STICKER,
+                "the tab needs an icon on both platforms");
+        assertEquals(ZoneType.StickerSheets.getTrackableProperty(), TrackableProperty.StickerSheets,
+                "an untracked zone shows up empty in the match view");
+        assertTrue(ZoneType.PART_OF_COMMAND_ZONE.contains(ZoneType.StickerSheets));
     }
 
     /** An empty two-player game, just to own the cards under test. */
