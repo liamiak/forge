@@ -36,7 +36,8 @@ public class StickerTicketCardTest extends AITest {
 
     private static final List<String> CARDS = List.of(
             "Finishing Move", "Robo-Piñata", "Command Performance", "Costume Shop",
-            "Done for the Day", "Park Bleater", "Lineprancers", "Tusk and Whiskers");
+            "Done for the Day", "Park Bleater", "Lineprancers", "Tusk and Whiskers",
+            "Wolf in _____ Clothing", "Fight the _____ Fight");
 
     private Card giveSheet(Player p, String sheetName) {
         PaperCard pc = StaticData.instance().getVariantCards().getCard(sheetName);
@@ -51,10 +52,14 @@ public class StickerTicketCardTest extends AITest {
                 addCardToZone(name, p, ZoneType.Hand), null, null);
         // A card's own triggers are not active until the game next checks state effects.
         game.getAction().checkStateEffects(true);
-        game.getTriggerHandler().runWaitingTriggers();
-        game.getStack().addAllTriggeredAbilitiesToStack();
-        while (!game.getStack().isEmpty()) {
-            game.getStack().resolveStack();
+        // Twice round: a reflexive "when you do" trigger is only registered while the ability
+        // that spawned it resolves, so one pass never sees it.
+        for (int i = 0; i < 2; i++) {
+            game.getTriggerHandler().runWaitingTriggers();
+            game.getStack().addAllTriggeredAbilitiesToStack();
+            while (!game.getStack().isEmpty()) {
+                game.getStack().resolveStack();
+            }
         }
         return entered;
     }
@@ -153,6 +158,61 @@ public class StickerTicketCardTest extends AITest {
         SpellAbility charm = dies.ensureAbility();
         assertEquals(charm.getApi(), ApiType.Charm);
         assertEquals(CharmEffect.makePossibleOptions(charm).size(), 2, "both modes should be there");
+    }
+
+    /**
+     * Wolf in _____ Clothing's reflexive trigger reads the sticker it just placed: X is the
+     * unique vowels in that word, and the targets are chosen after the sticker exists.
+     */
+    @Test
+    public void testWolfInBlankClothingShrinksUpToX() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        Player opp = game.getPlayers().get(1);
+        giveSheet(p, "Eldrazi Guacamole Tightrope");
+        List<Card> victims = addCards("Grizzly Bears", 4, opp);
+
+        Card wolf = playAndResolve(game, p, "Wolf in _____ Clothing");
+        assertTrue(wolf.isStickered(), "it should have taken the free name sticker");
+        assertEquals(wolf.getStickers().get(0).getKind(), StickerKind.NAME);
+
+        String word = wolf.getStickers().get(0).getSticker().getWord().toUpperCase();
+        int vowels = 0;
+        for (char v : "AEIOUY".toCharArray()) {
+            if (word.indexOf(v) >= 0) {
+                vowels++;
+            }
+        }
+        long shrunk = victims.stream().filter(c -> c.getNetToughness() < 2).count();
+        assertTrue(shrunk > 0, "the reflexive trigger should have shrunk something");
+        assertTrue(shrunk <= vowels,
+                "at most one creature per unique vowel in \"" + word + "\", but " + shrunk + " were shrunk");
+    }
+
+    /** Fight the _____ Fight's pump counts only the long name stickers on the Aura itself. */
+    @Test
+    public void testFightTheBlankFightCountsLongStickers() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        Card bear = addCard("Grizzly Bears", p);
+        Card aura = addCard("Fight the _____ Fight", p);
+        aura.attachToEntity(bear, null);
+        game.getAction().checkStateEffects(true);
+        assertEquals(bear.getNetToughness(), 2, "no stickers, no bonus");
+
+        Card sheet = giveSheet(p, "Eldrazi Guacamole Tightrope");
+        List<Sticker> names = StickerSheet.getStickers(sheet).stream()
+                .filter(x -> x.getKind() == StickerKind.NAME).toList();
+        Sticker seven = names.stream().filter(x -> x.getWord().length() == 7).findFirst().orElseThrow();
+        Sticker nine = names.stream().filter(x -> x.getWord().length() == 9).findFirst().orElseThrow();
+
+        aura.addSticker(new AppliedSticker(seven, game.getNextTimestamp()));
+        game.getAction().checkStateEffects(true);
+        assertEquals(bear.getNetToughness(), 2, "seven letters is under the bar");
+
+        aura.addSticker(new AppliedSticker(nine, game.getNextTimestamp()));
+        game.getAction().checkStateEffects(true);
+        assertEquals(bear.getNetToughness(), 4, "nine letters is +0/+2");
     }
 
     /** Puts a sticker of the given kind on a card the way PutStickerEffect does. */

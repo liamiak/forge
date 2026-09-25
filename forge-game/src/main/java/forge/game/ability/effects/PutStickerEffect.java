@@ -30,13 +30,15 @@ import org.apache.commons.lang3.StringUtils;
  *   <li>{@code Kind$ Name|Art|Ability|PT} - restrict the choice to one kind of sticker.</li>
  *   <li>{@code Optional$ True} - the player may decline.</li>
  * </ul>
- * After a name sticker is placed the effect records {@code StickerWord},
- * {@code StickerUniqueVowels} and {@code StickerLetters} on the ability, so a sub-ability can
- * read them the way a die roll's sub-abilities read its result.
+ * The effect records {@code StickersPlaced} on the ability, and for a name sticker also
+ * {@code StickerWord}, {@code StickerUniqueVowels} and {@code StickerLetters}, so a sub-ability
+ * can read them the way a die roll's sub-abilities read its result.
  */
 public class PutStickerEffect extends SpellAbilityEffect {
 
     private static final String VOWELS = "AEIOUY";
+    /** How many stickers this resolution placed, for the cards that say "when you do". */
+    private static final String PLACED = "StickersPlaced";
 
     @Override
     protected String getStackDescription(SpellAbility sa) {
@@ -84,6 +86,11 @@ public class PutStickerEffect extends SpellAbilityEffect {
         final Game game = sa.getActivatingPlayer().getGame();
         final StickerKind only = sa.hasParam("Kind") ? StickerKind.smartValueOf(sa.getParam("Kind")) : null;
         final boolean optional = sa.hasParam("Optional");
+        // The same ability object resolves again and again, so clear what the last resolution
+        // recorded before anything can read it.
+        recordNameStickerValues(sa, null);
+        sa.setSVar(PLACED, "0");
+        int placed = 0;
 
         for (final Card target : chooseObjects(sa, game)) {
             // CR 123.3b - a player can't put a sticker on an object they don't own. If an effect
@@ -126,6 +133,7 @@ public class PutStickerEffect extends SpellAbilityEffect {
             if (chosen.getKind() == StickerKind.NAME) {
                 recordNameStickerValues(sa, chosen.getWord());
             }
+            sa.setSVar(PLACED, Integer.toString(++placed));
 
             final Map<AbilityKey, Object> runParams = AbilityKey.newMap();
             runParams.put(AbilityKey.Card, target);
