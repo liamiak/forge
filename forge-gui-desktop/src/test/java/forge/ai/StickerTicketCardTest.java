@@ -42,7 +42,8 @@ public class StickerTicketCardTest extends AITest {
             "Done for the Day", "Park Bleater", "Lineprancers", "Tusk and Whiskers",
             "Wolf in _____ Clothing", "Fight the _____ Fight",
             "Ambassador Blorpityblorpboop", "Roxi, Publicist to the Stars",
-            "Pin Collection", "Clandestine Chameleon");
+            "Pin Collection", "Clandestine Chameleon", "_____ _____ Rocketship", "Wicker Picker",
+            "Last Voyage of the _____");
 
     private Card giveSheet(Player p, String sheetName) {
         PaperCard pc = StaticData.instance().getVariantCards().getCard(sheetName);
@@ -353,6 +354,95 @@ public class StickerTicketCardTest extends AITest {
         assertEquals(placed.getKind(), StickerKind.ABILITY);
         assertTrue(placed.getTickets() <= 2, "MaxTickets should have kept the 5-ticket one out");
         assertEquals(p.getCounters(CounterEnumType.TICKET), 0, "and nothing was paid");
+    }
+
+    /**
+     * The Rocketship counts the name stickers on it that begin with the letter its controller
+     * chose - not the letters they contain, which is what the existing NameLetter count does.
+     */
+    @Test
+    public void testRocketshipCountsFirstLetters() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        Card sheet = giveSheet(p, "Eldrazi Guacamole Tightrope");
+        Card ship = addCard("_____ _____ Rocketship", p);
+        game.getAction().checkStateEffects(true);
+
+        // Eldrazi, Guacamole, Tightrope: one starts with G, and two contain one.
+        for (Sticker word : StickerSheet.getStickers(sheet)) {
+            if (word.getKind() == StickerKind.NAME) {
+                ship.addSticker(new AppliedSticker(word, game.getNextTimestamp()));
+            }
+        }
+        assertEquals(ship.getStickers().size(), 3);
+
+        ship.setChosenType("G");
+        assertEquals(AbilityUtils.calculateAmount(ship, "Count$CardStickers.NameStartsWith.ChosenType", null), 1,
+                "only Guacamole begins with G");
+        assertEquals(AbilityUtils.calculateAmount(ship, "Count$CardStickers.NameLetter.G", null), 2,
+                "but two of the three words contain one");
+
+        ship.setChosenType("T");
+        assertEquals(AbilityUtils.calculateAmount(ship, "Count$CardStickers.NameStartsWith.ChosenType", null), 1,
+                "Tightrope begins with T");
+        ship.setChosenType("Q");
+        assertEquals(AbilityUtils.calculateAmount(ship, "Count$CardStickers.NameStartsWith.ChosenType", null), 0);
+    }
+
+    /**
+     * Sticker kicker is a kicker variant, so Wicker Picker grants the kicker cost itself and
+     * pays out on the trigger. The keyword has to reach the spell while it is still in hand.
+     */
+    @Test
+    public void testWickerPickerGrantsTheKickerCost() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        Card inHand = addCardToZone("Grizzly Bears", p, ZoneType.Hand);
+        Card land = addCardToZone("Mountain", p, ZoneType.Hand);
+        game.getAction().checkStateEffects(true);
+        assertFalse(inHand.hasKeyword("Kicker:1"), "nothing grants it yet");
+
+        addCard("Wicker Picker", p);
+        game.getAction().checkStateEffects(true);
+        assertTrue(inHand.hasKeyword("Kicker:1"), "a creature spell you own gains the cost in hand");
+        assertFalse(land.hasKeyword("Kicker:1"), "a land does not");
+    }
+
+    /**
+     * Last Voyage becomes an Aura in the middle of its own trigger, reanimates a creature and
+     * attaches itself to it, and its pump counts only the short name stickers it carries.
+     */
+    @Test
+    public void testLastVoyageBecomesAnAura() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        Card sheet = giveSheet(p, "Eldrazi Guacamole Tightrope");
+        Card corpse = addCardToZone("Grizzly Bears", p, ZoneType.Graveyard);
+
+        Card voyage = playAndResolve(game, p, "Last Voyage of the _____");
+        assertTrue(voyage.getType().hasSubtype("Aura"), "it should have become an Aura");
+
+        Card returned = game.getCardsIn(ZoneType.Battlefield).stream()
+                .filter(c -> c.getName().equals("Grizzly Bears")).findFirst().orElse(null);
+        assertNotNull(returned, "the creature should have come back");
+        assertEquals(voyage.getEnchantingCard(), returned, "and the Aura should be on it");
+        assertFalse(game.getCardsIn(ZoneType.Graveyard).contains(corpse), "it left the graveyard");
+
+        // Eldrazi is seven letters, so it is worth +2/+0; Guacamole, at nine, is not.
+        int before = returned.getNetPower();
+        Sticker nine = StickerSheet.getStickers(sheet).stream()
+                .filter(x -> x.getKind() == StickerKind.NAME && x.getWord().length() == 9)
+                .findFirst().orElseThrow();
+        voyage.addSticker(new AppliedSticker(nine, game.getNextTimestamp()));
+        game.getAction().checkStateEffects(true);
+        assertEquals(returned.getNetPower(), before, "a nine-letter word is too long to count");
+
+        Sticker seven = StickerSheet.getStickers(sheet).stream()
+                .filter(x -> x.getKind() == StickerKind.NAME && x.getWord().length() == 7)
+                .findFirst().orElseThrow();
+        voyage.addSticker(new AppliedSticker(seven, game.getNextTimestamp()));
+        game.getAction().checkStateEffects(true);
+        assertEquals(returned.getNetPower(), before + 2, "seven letters is +2/+0");
     }
 
     /** Puts a sticker of the given kind on a card the way PutStickerEffect does. */

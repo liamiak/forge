@@ -1575,12 +1575,21 @@ public class AbilityUtils {
         int count = 0;
         for (AppliedSticker applied : c.getStickers()) {
             Sticker s = applied.getSticker();
-            if ("NameMinLetters".equals(kind) || "NameMaxLetters".equals(kind) || "NameLetter".equals(kind)) {
+            if ("NameMinLetters".equals(kind) || "NameMaxLetters".equals(kind) || "NameLetter".equals(kind)
+                    || "NameStartsWith".equals(kind)) {
                 if (s.getKind() != StickerKind.NAME || sq.length < 3) {
                     continue;
                 }
                 String letters = s.getWord() == null ? "" : s.getWord().replaceAll("[^A-Za-z]", "");
-                if ("NameLetter".equals(kind)) {
+                if ("NameStartsWith".equals(kind)) {
+                    // The letter is either written out or the one the card's controller chose.
+                    String wantedLetter = "ChosenType".equals(sq[2]) ? c.getChosenType() : sq[2];
+                    if (!letters.isEmpty() && wantedLetter != null && !wantedLetter.isEmpty()
+                            && Character.toUpperCase(letters.charAt(0))
+                                    == Character.toUpperCase(wantedLetter.charAt(0))) {
+                        count++;
+                    }
+                } else if ("NameLetter".equals(kind)) {
                     char wanted = Character.toUpperCase(sq[2].charAt(0));
                     for (char ch : letters.toUpperCase().toCharArray()) {
                         if (ch == wanted) {
@@ -2166,6 +2175,7 @@ public class AbilityUtils {
         //   CardStickers.NameMinLetters.8   name stickers of eight or more letters
         //   CardStickers.NameMaxLetters.7   name stickers of seven or fewer letters
         //   CardStickers.NameLetter.o       occurrences of a letter across all name stickers
+        //   CardStickers.NameStartsWith.ChosenType   name stickers beginning with the chosen letter
         if (sq[0].startsWith("CardStickers")) {
             return doXMath(countStickers(c, sq), expr, c, ctb);
         }
