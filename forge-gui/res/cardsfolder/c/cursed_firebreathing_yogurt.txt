@@ -9,7 +9,8 @@ SVar:STK4:Kind$ Art
 SVar:STK5:Kind$ Art
 SVar:STK6:Kind$ Art
 SVar:STK7:Kind$ Ability | Tickets$ 2 | Text$ Prowess, prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn twice.) | Keywords$ Prowess,Prowess
-SVar:STK8:Kind$ Ability | Tickets$ 5 | Text$ {2}, {T}: This permanent deals 2 damage to any target.
+SVar:STK8:Kind$ Ability | Tickets$ 5 | Text$ {2}, {T}: This permanent deals 2 damage to any target. | Ability$ STK8Damage
 SVar:STK9:Kind$ PT | Tickets$ 2 | Power$ 4 | Toughness$ 2
 SVar:STK10:Kind$ PT | Tickets$ 4 | Power$ 4 | Toughness$ 8
+SVar:STK8Damage:AB$ DealDamage | Cost$ 2 T | ValidTgts$ Any | NumDmg$ 2 | SpellDescription$ CARDNAME deals 2 damage to any target.
 Oracle:{TK}{TK} — Prowess, prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn twice.)\n{TK}{TK}{TK}{TK}{TK} — {2}, {T}: This permanent deals 2 damage to any target.\n{TK}{TK} — 4/2\n{TK}{TK}{TK}{TK} — 4/8

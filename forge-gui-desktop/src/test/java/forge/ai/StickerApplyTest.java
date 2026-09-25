@@ -1,6 +1,7 @@
 package forge.ai;
 
 import java.util.List;
+import java.util.Map;
 
 import forge.StaticData;
 import forge.game.Game;
@@ -201,13 +202,13 @@ public class StickerApplyTest extends AITest {
     public void testUnwrittenAbilityStickerIsNotOffered() {
         Game game = initAndCreateGame();
         Player p = game.getPlayers().get(0);
-        int unwritten = 0;
-        for (Sticker s : sheet(p, "Eldrazi Guacamole Tightrope")) {
-            if (s.getKind() == StickerKind.ABILITY && !s.isImplemented()) {
-                unwritten++;
-            }
-        }
-        assertTrue(unwritten > 0, "that sheet still has an ability sticker without a script");
+        Card sheet = Card.fromPaperCard(
+                StaticData.instance().getVariantCards().getCard("Eldrazi Guacamole Tightrope"), p);
+        Sticker unwritten = Sticker.parse(sheet, "STKX",
+                Map.of("Kind", "Ability", "Tickets", "2", "Text", "Do something not written yet."));
+        assertFalse(unwritten.isImplemented(), "an ability sticker with no script grants nothing");
+
+        sheet(p, "Eldrazi Guacamole Tightrope");
         for (Sticker s : StickerSheet.getAvailableStickers(p)) {
             assertTrue(s.isImplemented(), s + " should not be offered");
         }

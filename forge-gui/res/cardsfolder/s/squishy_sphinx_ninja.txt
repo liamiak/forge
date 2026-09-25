@@ -8,7 +8,7 @@ SVar:STK3:Kind$ Name | Word$ Ninja
 SVar:STK4:Kind$ Art
 SVar:STK5:Kind$ Art
 SVar:STK6:Kind$ Art
-SVar:STK7:Kind$ Ability | Tickets$ 2 | Text$ Ward {2} (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {2}.)
+SVar:STK7:Kind$ Ability | Tickets$ 2 | Text$ Ward {2} (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {2}.) | Keywords$ Ward:2
 SVar:STK8:Kind$ Ability | Tickets$ 4 | Text$ Provoke (Whenever this creature attacks, you may have target creature defending player controls untap and block it if able.) | Keywords$ Provoke
 SVar:STK9:Kind$ PT | Tickets$ 3 | Power$ 5 | Toughness$ 3
 SVar:STK10:Kind$ PT | Tickets$ 5 | Power$ 7 | Toughness$ 7
