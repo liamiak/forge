@@ -1983,6 +1983,24 @@ public class AbilityUtils {
         }
 
         // count valid cards in any specified zone/s
+        // Count$StickerPower <valid> / Count$StickerToughness <valid> - the power or toughness
+        // printed on the power and toughness stickers carried by the matching permanents.
+        if (sq[0].startsWith("StickerPower") || sq[0].startsWith("StickerToughness")) {
+            String[] lparts = paidparts[0].split(" ", 2);
+            Iterable<Card> stickered = CardLists.getValidCards(game.getCardsIn(ZoneType.Battlefield),
+                    lparts.length > 1 ? lparts[1] : "Permanent", player, c, ctb);
+            final boolean power = sq[0].startsWith("StickerPower");
+            int total = 0;
+            for (Card card : stickered) {
+                for (AppliedSticker applied : card.getStickers()) {
+                    if (applied.getKind() == StickerKind.PT) {
+                        total += power ? applied.getSticker().getPower() : applied.getSticker().getToughness();
+                    }
+                }
+            }
+            return doXMath(total, expr, c, ctb);
+        }
+
         if (sq[0].startsWith("Valid")) {
             String[] lparts = paidparts[0].split(" ", 2);
 

@@ -6,6 +6,7 @@ import forge.StaticData;
 import forge.deck.DeckSection;
 import forge.game.Game;
 import forge.game.ability.AbilityKey;
+import forge.game.ability.AbilityUtils;
 import forge.game.card.Card;
 import forge.game.card.CounterEnumType;
 import forge.game.card.sticker.AppliedSticker;
@@ -37,7 +38,8 @@ public class StickerTicketCardTest extends AITest {
     private static final List<String> CARDS = List.of(
             "Finishing Move", "Robo-Piñata", "Command Performance", "Costume Shop",
             "Done for the Day", "Park Bleater", "Lineprancers", "Tusk and Whiskers",
-            "Wolf in _____ Clothing", "Fight the _____ Fight");
+            "Wolf in _____ Clothing", "Fight the _____ Fight",
+            "Ambassador Blorpityblorpboop", "Roxi, Publicist to the Stars");
 
     private Card giveSheet(Player p, String sheetName) {
         PaperCard pc = StaticData.instance().getVariantCards().getCard(sheetName);
@@ -213,6 +215,76 @@ public class StickerTicketCardTest extends AITest {
         aura.addSticker(new AppliedSticker(nine, game.getNextTimestamp()));
         game.getAction().checkStateEffects(true);
         assertEquals(bear.getNetToughness(), 4, "nine letters is +0/+2");
+    }
+
+    /** Roxi counts art stickers on the battlefield and in the graveyard, and nothing else. */
+    @Test
+    public void testRoxiCountsArtStickersInTwoZones() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        Card sheet = giveSheet(p, "Eldrazi Guacamole Tightrope");
+        Card roxi = addCard("Roxi, Publicist to the Stars", p);
+        game.getAction().checkStateEffects(true);
+        assertEquals(roxi.getNetPower(), 0, "no art stickers anywhere");
+
+        List<Sticker> art = StickerSheet.getStickers(sheet).stream()
+                .filter(x -> x.getKind() == StickerKind.ART).toList();
+        Card bear = addCard("Grizzly Bears", p);
+        bear.addSticker(new AppliedSticker(art.get(0), game.getNextTimestamp()));
+        game.getAction().checkStateEffects(true);
+        assertEquals(roxi.getNetPower(), 1, "a stickered permanent you control");
+
+        Card corpse = addCardToZone("Grizzly Bears", p, ZoneType.Graveyard);
+        corpse.addSticker(new AppliedSticker(art.get(1), game.getNextTimestamp()));
+        game.getAction().checkStateEffects(true);
+        assertEquals(roxi.getNetPower(), 2, "plus a stickered card in your graveyard");
+
+        // A name sticker is not an art sticker.
+        Card other = addCard("Grizzly Bears", p);
+        other.addSticker(new AppliedSticker(StickerSheet.getStickers(sheet).stream()
+                .filter(x -> x.getKind() == StickerKind.NAME).findFirst().orElseThrow(),
+                game.getNextTimestamp()));
+        game.getAction().checkStateEffects(true);
+        assertEquals(roxi.getNetPower(), 2, "only art stickers count");
+    }
+
+    /**
+     * Ambassador Blorpityblorpboop adds up the power and toughness stickers you have out. The
+     * numbers are read through the card's own trigger, since "you control" is resolved against
+     * the ability's controller.
+     */
+    @Test
+    public void testAmbassadorTotalsStickerPowerAndToughness() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        Player opp = game.getPlayers().get(1);
+        Card sheet = giveSheet(p, "Eldrazi Guacamole Tightrope");
+        List<Sticker> pts = StickerSheet.getStickers(sheet).stream()
+                .filter(x -> x.getKind() == StickerKind.PT).toList();
+
+        Card mine = addCard("Grizzly Bears", p);
+        mine.addSticker(new AppliedSticker(pts.get(0), game.getNextTimestamp()));
+        Card theirs = addCard("Grizzly Bears", opp);
+        theirs.addSticker(new AppliedSticker(pts.get(1), game.getNextTimestamp()));
+        Card ambassador = addCard("Ambassador Blorpityblorpboop", p);
+        game.getAction().checkStateEffects(true);
+
+        SpellAbility animate = null;
+        for (Trigger t : ambassador.getTriggers()) {
+            if (t.getOverridingAbility() != null && t.getOverridingAbility().getApi() == ApiType.Animate) {
+                animate = t.getOverridingAbility();
+            }
+        }
+        assertNotNull(animate, "the begin of combat trigger should animate");
+        animate.setActivatingPlayer(p);
+
+        assertEquals(AbilityUtils.calculateAmount(ambassador, "X", animate), pts.get(0).getPower(),
+                "only the sticker on a permanent you control");
+        assertEquals(AbilityUtils.calculateAmount(ambassador, "Y", animate), pts.get(0).getToughness());
+
+        // And the opponent's sticker is counted for them, not ignored altogether.
+        assertEquals(AbilityUtils.calculateAmount(ambassador, "Count$StickerPower Permanent", animate),
+                pts.get(0).getPower() + pts.get(1).getPower());
     }
 
     /** Puts a sticker of the given kind on a card the way PutStickerEffect does. */
