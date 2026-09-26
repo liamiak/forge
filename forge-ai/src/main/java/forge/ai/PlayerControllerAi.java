@@ -726,7 +726,6 @@ public class PlayerControllerAi extends PlayerController {
         return PutStickerAi.chooseSticker(options, target, sa, isOptional);
     }
 
-
     @Override
     public int chooseStickerNamePosition(Sticker sticker, Card target) {
         // Position only changes the printed name, so put the word at the front.

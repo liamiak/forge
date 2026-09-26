@@ -1405,13 +1405,23 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
         String title = localizer.getMessage("lblChooseSticker", CardTranslation.getTranslatedName(target.getName()));
         // The sheets print the ticket cost first, and what the sticker does after it, so the
         // list reads the way the sheet the player is looking at does.
-        FSerializableFunction<Sticker, String> display = s -> s.getTickets() == 0 ? s.getDescription()
-                : StringUtils.repeat("{TK}", s.getTickets()) + " - " + s.getDescription();
-        if (isOptional) {
-            List<Sticker> chosen = getGui().getChoices(title, 0, 1, options, null, display);
-            return chosen.isEmpty() ? null : chosen.get(0);
+        final List<String> labels = Lists.newArrayList();
+        final List<Integer> indices = Lists.newArrayList();
+        for (Sticker s : options) {
+            labels.add(s.getTickets() == 0 ? s.getDescription()
+                    : StringUtils.repeat("{TK}", s.getTickets()) + " - " + s.getDescription());
+            indices.add(indices.size());
         }
-        return getGui().one(title, options, display);
+        // A remote player's prompt is serialized, and a sticker is not, so choose by position.
+        FSerializableFunction<Integer, String> display = labels::get;
+        Integer chosen;
+        if (isOptional) {
+            List<Integer> picked = getGui().getChoices(title, 0, 1, indices, null, display);
+            chosen = picked.isEmpty() ? null : picked.get(0);
+        } else {
+            chosen = getGui().one(title, indices, display);
+        }
+        return chosen == null ? null : options.get(chosen);
     }
 
     @Override
@@ -1422,12 +1432,14 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
         }
         // CR 123.6b - otherwise offer every name the sticker could produce and let them pick.
         int words = target.getName().split(" ").length;
-        List<Integer> positions = Lists.newArrayList();
+        final List<Integer> positions = Lists.newArrayList();
+        final List<String> names = Lists.newArrayList();
         for (int at = 0; at <= words; at++) {
             positions.add(at);
+            names.add(Card.addStickerWord(target.getName(), sticker.getWord(), at));
         }
-        Integer chosen = getGui().one(localizer.getMessage("lblChooseStickerNamePosition"), positions,
-                at -> Card.addStickerWord(target.getName(), sticker.getWord(), at));
+        FSerializableFunction<Integer, String> display = names::get;
+        Integer chosen = getGui().one(localizer.getMessage("lblChooseStickerNamePosition"), positions, display);
         return chosen == null ? 0 : chosen;
     }
 

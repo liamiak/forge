@@ -79,7 +79,6 @@ public class Player extends GameEntity implements Comparable<Player> {
             ZoneType.Sideboard, ZoneType.PlanarDeck, ZoneType.SchemeDeck, ZoneType.AttractionDeck, ZoneType.ContraptionDeck,
             ZoneType.Junkyard, ZoneType.StickerSheets, ZoneType.Merged, ZoneType.Subgame, ZoneType.None));
 
-
     private int life = 20;
     private int startingLife = 20;
     private int lifeStartedThisTurnWith = startingLife;
