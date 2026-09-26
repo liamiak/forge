@@ -4,6 +4,7 @@ import com.google.common.collect.*;
 import forge.LobbyPlayer;
 import forge.StaticData;
 import forge.ai.ability.ProtectAi;
+import forge.ai.ability.PutStickerAi;
 import forge.card.CardStateName;
 import forge.card.ColorSet;
 import forge.card.ICardFace;
@@ -721,25 +722,8 @@ public class PlayerControllerAi extends PlayerController {
 
     @Override
     public Sticker chooseSticker(List<Sticker> options, Card target, SpellAbility sa, boolean isOptional) {
-        // Prefer the sticker that helps most: a bigger body, then an ability, then a name (which
-        // can matter for vowel counts), then art. Ties break on the cheaper ticket cost.
-        Sticker best = null;
-        int bestScore = Integer.MIN_VALUE;
-        for (Sticker s : options) {
-            int score = switch (s.getKind()) {
-                case PT -> 1000 + (s.getPower() + s.getToughness()
-                        - target.getNetPower() - target.getNetToughness()) * 10;
-                case ABILITY -> 500;
-                case NAME -> 100 + s.getUniqueVowelCount();
-                case ART -> 50;
-            };
-            score -= s.getTickets();
-            if (score > bestScore) {
-                bestScore = score;
-                best = s;
-            }
-        }
-        return best;
+        // Scored where the AI scores what to put a sticker on, so the two agree.
+        return PutStickerAi.chooseSticker(options, target, sa, isOptional);
     }
 
 

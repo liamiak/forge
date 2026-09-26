@@ -93,10 +93,33 @@ public class PutStickerEffect extends SpellAbilityEffect {
         return result;
     }
 
+    /**
+     * The stickers this ability may offer the given player: what is on their sheets, capped by
+     * what this ability lets them spend (CR 123.3c) and by the kind it asks for. The AI scores
+     * this list too, to decide what is worth putting a sticker on.
+     */
+    public static List<Sticker> availableStickers(SpellAbility sa, Player owner) {
+        // CR 123.3c - normally only stickers the owner can pay for, but a card may waive the
+        // cost, and may cap how expensive a sticker it offers.
+        int affordable = sa.hasParam("NoTicketCost") ? Integer.MAX_VALUE
+                : owner.getCounters(CounterEnumType.TICKET);
+        if (sa.hasParam("MaxTickets")) {
+            affordable = Math.min(affordable,
+                    AbilityUtils.calculateAmount(sa.getHostCard(), sa.getParam("MaxTickets"), sa));
+        }
+        final StickerKind only = sa.hasParam("Kind") ? StickerKind.smartValueOf(sa.getParam("Kind")) : null;
+        List<Sticker> options = new ArrayList<>();
+        for (Sticker s : StickerSheet.getAvailableStickers(owner, affordable)) {
+            if (only == null || s.getKind() == only) {
+                options.add(s);
+            }
+        }
+        return options;
+    }
+
     @Override
     public void resolve(SpellAbility sa) {
         final Game game = sa.getActivatingPlayer().getGame();
-        final StickerKind only = sa.hasParam("Kind") ? StickerKind.smartValueOf(sa.getParam("Kind")) : null;
         final boolean optional = sa.hasParam("Optional");
         // The same ability object resolves again and again, so clear what the last resolution
         // recorded before anything can read it.
@@ -115,20 +138,7 @@ public class PutStickerEffect extends SpellAbilityEffect {
                 continue;
             }
 
-            // CR 123.3c - normally only stickers the owner can pay for, but a card may waive the
-            // cost, and may cap how expensive a sticker it offers.
-            final boolean free = sa.hasParam("NoTicketCost");
-            int affordable = free ? Integer.MAX_VALUE : owner.getCounters(CounterEnumType.TICKET);
-            if (sa.hasParam("MaxTickets")) {
-                affordable = Math.min(affordable,
-                        AbilityUtils.calculateAmount(sa.getHostCard(), sa.getParam("MaxTickets"), sa));
-            }
-            List<Sticker> options = new ArrayList<>();
-            for (Sticker s : StickerSheet.getAvailableStickers(owner, affordable)) {
-                if (only == null || s.getKind() == only) {
-                    options.add(s);
-                }
-            }
+            final List<Sticker> options = availableStickers(sa, owner);
             if (options.isEmpty()) {
                 continue;
             }
@@ -139,7 +149,7 @@ public class PutStickerEffect extends SpellAbilityEffect {
             }
 
             // CR 123.3c - the owner pays the sticker's ticket cost to place it.
-            if (chosen.getTickets() > 0 && !free) {
+            if (chosen.getTickets() > 0 && !sa.hasParam("NoTicketCost")) {
                 owner.subtractCounter(CounterEnumType.TICKET, chosen.getTickets(), owner);
             }
 
