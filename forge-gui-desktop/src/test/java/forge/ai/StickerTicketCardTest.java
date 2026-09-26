@@ -18,6 +18,7 @@ import forge.game.card.sticker.StickerSheet;
 import forge.game.player.Player;
 import forge.game.ability.ApiType;
 import forge.game.ability.effects.CharmEffect;
+import forge.game.spellability.AbilitySub;
 import forge.game.spellability.SpellAbility;
 import forge.game.trigger.Trigger;
 import forge.game.trigger.TriggerType;
@@ -496,6 +497,30 @@ public class StickerTicketCardTest extends AITest {
         choose.setActivatingPlayer(p);
         assertEquals(ComputerUtil.chooseSomeType(p, "Letter", choose, letters), "G",
                 "Guacamole is the only name sticker on it");
+    }
+
+    /**
+     * Done for the Day's modes are optional, and CharmAi takes an optional mode only if the
+     * mode's own AI wants it. Nothing in Forge knew what a ticket was worth, so the AI declined
+     * both and the trigger resolved for nothing.
+     */
+    @Test
+    public void testAiTakesTheTicketItIsOffered() {
+        Game game = initAndCreateGame();
+        Player p = game.getPhaseHandler().getPlayerTurn();
+        giveSheet(p, "Eldrazi Guacamole Tightrope");
+        Card dftd = addCard("Done for the Day", p);
+        addCard("Park Bleater", p);
+        game.getAction().checkStateEffects(true);
+
+        SpellAbility charm = dftd.getTriggers().iterator().next().ensureAbility();
+        charm.setActivatingPlayer(p);
+        boolean wantsSomething = false;
+        for (AbilitySub mode : CharmEffect.makePossibleOptions(charm)) {
+            mode.setActivatingPlayer(p);
+            wantsSomething |= SpellApiToAi.Converter.get(mode).canPlayWithSubs(p, mode).willingToPlay();
+        }
+        assertTrue(wantsSomething, "the AI should want at least one mode of a free payout");
     }
 
     /** Puts a sticker of the given kind on a card the way PutStickerEffect does. */

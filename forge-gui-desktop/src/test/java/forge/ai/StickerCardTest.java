@@ -197,7 +197,8 @@ public class StickerCardTest extends AITest {
         placeAndResolve(game, bear, name, p);
         assertEquals(countCardsWithName(game, "Treasure Token"), 1, "a name sticker makes one Treasure");
         assertEquals(champion.getCounters(CounterEnumType.P1P1), 0, "a name sticker is not a counter");
-        assertEquals(champion.getNetPower(), 2, "a name sticker is +1/+1 until end of turn");
+        // Wee Champion is printed 0/1, so +1/+1 until end of turn makes it 1/2.
+        assertEquals(champion.getNetPower(), 1, "a name sticker is +1/+1 until end of turn");
 
         Sticker art = firstOfKind(p, StickerKind.ART);
         placeAndResolve(game, bear, art, p);

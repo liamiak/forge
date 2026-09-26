@@ -94,6 +94,42 @@ public final class StickerSheet {
         return any;
     }
 
+    /**
+     * How a card's stickers read in its details: what is on it, or - for a sheet - which of its
+     * stickers are still there to take. Empty for a card with nothing to say.
+     */
+    public static String describe(Card c) {
+        if (isSheet(c)) {
+            List<Sticker> stickers = getStickers(c);
+            if (stickers.isEmpty()) {
+                return "";
+            }
+            List<Sticker> free = c.getOwner() == null ? List.of() : getAvailableStickers(c.getOwner(),
+                    Integer.MAX_VALUE);
+            StringBuilder sb = new StringBuilder("Stickers on this sheet:");
+            for (Sticker s : stickers) {
+                boolean taken = free.stream().noneMatch(f -> identity(f).equals(identity(s)));
+                sb.append("\r\n  ").append(s.getDescription());
+                if (s.getTickets() > 0) {
+                    sb.append(" (").append("{TK}".repeat(s.getTickets())).append(")");
+                }
+                if (taken) {
+                    sb.append(" - used");
+                }
+            }
+            return sb.toString();
+        }
+        if (!c.isStickered()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder("Stickers:");
+        for (AppliedSticker applied : c.getStickers()) {
+            sb.append("\r\n  ").append(applied.getSticker().getDescription())
+                    .append(" (").append(applied.getKind().name().toLowerCase()).append(")");
+        }
+        return sb.toString();
+    }
+
     /** CR 123.3a - a sticker is its sheet and its slot, never its text. */
     private static String identity(Sticker s) {
         return s.getSheet().getId() + "/" + s.getSlot();

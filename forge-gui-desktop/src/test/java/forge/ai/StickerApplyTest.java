@@ -205,6 +205,31 @@ public class StickerApplyTest extends AITest {
         assertEquals(inHand.getName(), "Grizzly Bears");
     }
 
+    /**
+     * An art sticker changes nothing else a player can see (CR 123.9), so the details pane has
+     * to say it is there - otherwise two identical creatures cannot be told apart. The sheet
+     * says which of its stickers have been taken, for the same reason.
+     */
+    @Test
+    public void testStickersShowInTheCardDetails() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        List<Sticker> stickers = sheet(p, "Eldrazi Guacamole Tightrope");
+        Card bear = addCard("Grizzly Bears", p);
+        assertFalse(bear.getView().getText().contains("Stickers:"), "nothing on it yet");
+
+        Sticker art = first(stickers, StickerKind.ART);
+        bear.addSticker(new AppliedSticker(art, game.getNextTimestamp()));
+        assertTrue(bear.getView().getText().contains(art.getDescription()),
+                "the details should name the art sticker that is on it");
+
+        Card sheetCard = p.getZone(ZoneType.StickerSheets).get(0);
+        String sheetText = sheetCard.getView().getText();
+        assertTrue(sheetText.contains("used"), "the sheet should mark the sticker as taken");
+        assertTrue(sheetText.contains(first(stickers, StickerKind.NAME).getWord()),
+                "and still list the ones that are not");
+    }
+
     /** CR 123.7 - an ability sticker grants the object the ability printed on it. */
     @Test
     public void testAbilityStickerGrantsItsKeyword() {

@@ -3,6 +3,7 @@ package forge.game.card;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import forge.game.card.sticker.StickerSheet;
 import forge.ImageKeys;
 import forge.StaticData;
 import forge.card.*;
@@ -805,6 +806,15 @@ public class CardView extends GameEntityView {
         set(TrackableProperty.NonAbilityText, c.getNonAbilityText());
     }
 
+    /**
+     * What is on this card, or - for a sticker sheet - what is still on the sheet. An art
+     * sticker changes nothing a player can otherwise see (CR 123.9), so without this there is
+     * no way to tell a stickered permanent from a plain one.
+     */
+    void updateStickers(Card c) {
+        set(TrackableProperty.Stickers, StickerSheet.describe(c));
+    }
+
     public String getText() {
         return getText(getCurrentState(), null);
     }
@@ -869,6 +879,11 @@ public class CardView extends GameEntityView {
         if (!nonAbilityText.isEmpty()) {
             sb.append("\r\n \r\nNon ability features: \r\n");
             sb.append(nonAbilityText.replaceAll("CARDNAME", getName()));
+        }
+
+        String stickers = get(TrackableProperty.Stickers);
+        if (StringUtils.isNotEmpty(stickers)) {
+            sb.append("\r\n\r\n").append(stickers);
         }
 
         Set<Integer> attractionLights = get(TrackableProperty.AttractionLights);

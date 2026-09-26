@@ -4622,6 +4622,7 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
     public final void addSticker(final AppliedSticker s) {
         stickers.add(s);
         s.applyEffect(this);
+        updateStickersForView();
     }
     /**
      * CR 123.5 - stickers carry over to the new object in another public zone, keeping their
@@ -4631,6 +4632,20 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         stickers = new ArrayList<>(oldCard.getStickers());
         for (AppliedSticker s : stickers) {
             s.applyEffect(this);
+        }
+        updateStickersForView();
+    }
+
+    /**
+     * Refreshes what the details pane says about stickers - for this card, and for the owner's
+     * sheets, which describe what is still on them and so go stale the moment one is placed.
+     */
+    private void updateStickersForView() {
+        view.updateStickers(this);
+        if (getOwner() != null) {
+            for (Card sheet : getOwner().getCardsIn(ZoneType.StickerSheets)) {
+                sheet.getView().updateStickers(sheet);
+            }
         }
     }
 
