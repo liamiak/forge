@@ -242,9 +242,46 @@ public class AnimateAi extends SpellAbilityAi {
         return new AiAbilityDecision(100, AiPlayDecision.WillPlay);
     }
 
+    /**
+     * Whether a pure power and toughness setting effect is worth taking. It sets them rather than
+     * adding to them, so the same ability is a buff or a shrink depending on the board - and one
+     * that reads its numbers off the board can set them to 0/0. Only its own creatures and only a
+     * pure P/T change are judged here: anything that also hands out types, keywords or abilities
+     * can be worth having at any size, and shrinking somebody else's creature is the point.
+     */
+    private static boolean worthAnimating(final Player ai, final SpellAbility sa) {
+        // Whatever follows may be the reason the ability is worth taking at all.
+        if (sa.getSubAbility() != null) {
+            return true;
+        }
+        if (!sa.hasParam("Power") || !sa.hasParam("Toughness") || sa.hasParam("Types")
+                || sa.hasParam("RemoveTypes") || sa.hasParam("Keywords") || sa.hasParam("HiddenKeywords")
+                || sa.hasParam("Abilities") || sa.hasParam("Triggers") || sa.hasParam("Replacements")
+                || sa.hasParam("staticAbilities") || sa.hasParam("Colors")) {
+            return true;
+        }
+        final List<Card> defined = AbilityUtils.getDefinedCards(sa.getHostCard(), sa.getParam("Defined"), sa);
+        if (defined.isEmpty()) {
+            return true;
+        }
+        for (final Card c : defined) {
+            if (!c.isCreature() || !c.getController().equals(ai)) {
+                return true;
+            }
+            if (ComputerUtilCard.evaluateCreature(becomeAnimated(c, sa))
+                    > ComputerUtilCard.evaluateCreature(c)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     protected AiAbilityDecision doTriggerNoCost(Player aiPlayer, SpellAbility sa, boolean mandatory) {
         AiAbilityDecision decision;
+        if (!mandatory && !sa.usesTargeting() && !worthAnimating(aiPlayer, sa)) {
+            return new AiAbilityDecision(0, AiPlayDecision.CantPlayAi);
+        }
         if (sa.usesTargeting()) {
             decision = animateTgtAI(sa);
             if (decision.willingToPlay()) {

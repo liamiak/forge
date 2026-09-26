@@ -8,9 +8,11 @@ import forge.game.ability.AbilityFactory;
 import forge.game.ability.AbilityUtils;
 import forge.game.card.Card;
 import forge.game.card.CounterEnumType;
+import forge.game.card.sticker.AppliedSticker;
 import forge.game.card.sticker.Sticker;
 import forge.game.card.sticker.StickerKind;
 import forge.game.card.sticker.StickerSheet;
+import forge.game.phase.PhaseType;
 import forge.game.player.Player;
 import forge.game.spellability.SpellAbility;
 import forge.game.zone.ZoneType;
@@ -25,8 +27,10 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 /**
- * What the AI puts a sticker on, and which sticker it puts there. Both choices are scored
- * together, so the tests here drive whole abilities rather than either choice on its own.
+ * The choices the AI makes about stickers: what it puts one on, which one it puts there, and
+ * whether it takes an effect that sets power and toughness from the stickers in play. The first
+ * two are scored together, so the tests here drive whole abilities rather than either choice on
+ * its own.
  */
 public class StickerAiChoiceTest extends AITest {
 
@@ -175,5 +179,57 @@ public class StickerAiChoiceTest extends AITest {
         assertTrue(pins.isStickered(), "it costs nothing, so there is nothing to weigh it against");
         assertEquals(onlySticker(pins).getKind(), StickerKind.ABILITY);
         assertEquals(ai.getCounters(CounterEnumType.TICKET), 0, "and nothing was paid");
+    }
+
+    /** Puts every power and toughness sticker of one sheet on the given card. */
+    private void stickAllPT(Game game, Card sheet, Card on) {
+        for (Sticker s : StickerSheet.getStickers(sheet)) {
+            if (s.getKind() == StickerKind.PT) {
+                on.addSticker(new AppliedSticker(s, game.getNextTimestamp()));
+            }
+        }
+        game.getAction().checkStateEffects(true);
+    }
+
+    /** Runs the turn player's begin-combat triggers. */
+    private void toBeginCombat(Game game) {
+        playUntilPhase(game, PhaseType.COMBAT_BEGIN);
+        playUntilStackClear(game);
+    }
+
+    /**
+     * Ambassador Blorpityblorpboop's base power and toughness become the total on the stickers you
+     * control, which sets them rather than adding to them - with no stickers out that is 0/0, and
+     * the Ambassador dies. It is a "may", so the AI should pass.
+     */
+    @Test
+    public void testAiKeepsAPowerAndToughnessBiggerThanItsStickers() {
+        Game game = initAndCreateGame();
+        Player ai = game.getPhaseHandler().getPlayerTurn();
+        Card amb = addCard("Ambassador Blorpityblorpboop", ai);
+        game.getAction().checkStateEffects(true);
+        assertEquals(amb.getNetPower(), 3);
+
+        toBeginCombat(game);
+        game.getAction().checkStateEffects(true);
+
+        assertTrue(amb.isInPlay(), "0/0 would have died");
+        assertEquals(amb.getNetPower(), 3, "it owns no stickers, so there is nothing to become");
+        assertEquals(amb.getNetToughness(), 3);
+    }
+
+    /** The same trigger, when the stickers in play add up to more than it has. */
+    @Test
+    public void testAiTakesAPowerAndToughnessBiggerThanItsOwn() {
+        Game game = initAndCreateGame();
+        Player ai = game.getPhaseHandler().getPlayerTurn();
+        Card sheet = giveSheet(ai, "Eldrazi Guacamole Tightrope"); // 1/4 and 5/3
+        Card amb = addCard("Ambassador Blorpityblorpboop", ai);
+        stickAllPT(game, sheet, addCard("Grizzly Bears", ai));
+
+        toBeginCombat(game);
+
+        assertEquals(amb.getNetPower(), 6, "1 + 5 power across the stickers it controls");
+        assertEquals(amb.getNetToughness(), 7, "4 + 3 toughness");
     }
 }
