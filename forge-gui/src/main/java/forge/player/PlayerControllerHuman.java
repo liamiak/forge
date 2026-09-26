@@ -1403,9 +1403,10 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
     @Override
     public Sticker chooseSticker(List<Sticker> options, Card target, SpellAbility sa, boolean isOptional) {
         String title = localizer.getMessage("lblChooseSticker", CardTranslation.getTranslatedName(target.getName()));
-        // CR 123.3c - what a sticker costs in tickets is most of what the choice is about.
+        // The sheets print the ticket cost first, and what the sticker does after it, so the
+        // list reads the way the sheet the player is looking at does.
         FSerializableFunction<Sticker, String> display = s -> s.getTickets() == 0 ? s.getDescription()
-                : s.getDescription() + " (" + StringUtils.repeat("{TK}", s.getTickets()) + ")";
+                : StringUtils.repeat("{TK}", s.getTickets()) + " - " + s.getDescription();
         if (isOptional) {
             List<Sticker> chosen = getGui().getChoices(title, 0, 1, options, null, display);
             return chosen.isEmpty() ? null : chosen.get(0);

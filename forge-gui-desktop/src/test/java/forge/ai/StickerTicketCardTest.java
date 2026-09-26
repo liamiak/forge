@@ -1,5 +1,6 @@
 package forge.ai;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import forge.StaticData;
@@ -443,6 +444,58 @@ public class StickerTicketCardTest extends AITest {
         voyage.addSticker(new AppliedSticker(seven, game.getNextTimestamp()));
         game.getAction().checkStateEffects(true);
         assertEquals(returned.getNetPower(), before + 2, "seven letters is +2/+0");
+    }
+
+    /**
+     * Park Bleater only offers creatures that entered this turn, so on an empty turn the AI has
+     * nothing to sticker and should not activate it at all.
+     */
+    @Test
+    public void testAiWaitsUntilItHasSomethingToSticker() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        giveSheet(p, "Eldrazi Guacamole Tightrope");
+        Card bleater = addCard("Park Bleater", p);
+        game.getAction().checkStateEffects(true);
+        // Everything addCard puts down counts as having entered on turn one, so move off it.
+        playUntilNextTurn(game);
+
+        SpellAbility put = bleater.getSpellAbilities().stream()
+                .filter(a -> a.getApi() == ApiType.PutSticker).findFirst().orElseThrow();
+        assertFalse(SpellApiToAi.Converter.get(put).canPlayWithSubs(p, put).willingToPlay(),
+                "nothing entered this turn, so there is nothing to put a sticker on");
+
+        playAndResolve(game, p, "Grizzly Bears");
+        assertTrue(SpellApiToAi.Converter.get(put).canPlayWithSubs(p, put).willingToPlay(),
+                "a creature that entered this turn is something to put a sticker on");
+    }
+
+    /**
+     * The Rocketship's letter is worth whatever it matches, so the AI should pick the one its
+     * name stickers actually begin with rather than the first of the alphabet.
+     */
+    @Test
+    public void testAiChoosesALetterThatCounts() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        Card sheet = giveSheet(p, "Eldrazi Guacamole Tightrope");
+        Card ship = addCard("_____ _____ Rocketship", p);
+        for (Sticker word : StickerSheet.getStickers(sheet)) {
+            if (word.getKind() == StickerKind.NAME && word.getWord().startsWith("G")) {
+                ship.addSticker(new AppliedSticker(word, game.getNextTimestamp()));
+            }
+        }
+        game.getAction().checkStateEffects(true);
+
+        List<String> letters = new ArrayList<>();
+        for (char c = 'A'; c <= 'Z'; c++) {
+            letters.add(String.valueOf(c));
+        }
+        SpellAbility choose = AbilityFactory.getAbility(
+                "DB$ ChooseType | Type$ Letter | ValidTypes$ A,B,C | Defined$ You", ship);
+        choose.setActivatingPlayer(p);
+        assertEquals(ComputerUtil.chooseSomeType(p, "Letter", choose, letters), "G",
+                "Guacamole is the only name sticker on it");
     }
 
     /** Puts a sticker of the given kind on a card the way PutStickerEffect does. */

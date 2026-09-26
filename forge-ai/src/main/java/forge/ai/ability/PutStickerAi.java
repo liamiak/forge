@@ -9,10 +9,12 @@ import forge.ai.SpellAbilityAi;
 import forge.game.card.Card;
 import forge.game.card.CardCollection;
 import forge.game.card.CardLists;
+import forge.game.card.CardPredicates;
 import forge.game.card.sticker.StickerSheet;
 import forge.game.player.Player;
 import forge.game.player.PlayerActionConfirmMode;
 import forge.game.spellability.SpellAbility;
+import forge.game.zone.ZoneType;
 
 /**
  * Putting a sticker is upside whenever there is one to put, so the AI takes it. Which sticker it
@@ -20,6 +22,19 @@ import forge.game.spellability.SpellAbility;
  * when the ability targets, what to put the sticker on.
  */
 public class PutStickerAi extends SpellAbilityAi {
+
+    /** Whether the ability's own Choices$ pool holds anything the AI could sticker. */
+    private static boolean hasSomethingToSticker(Player ai, SpellAbility sa) {
+        if (!sa.hasParam("Choices")) {
+            return true;
+        }
+        ZoneType zone = sa.hasParam("ChoiceZone")
+                ? ZoneType.smartValueOf(sa.getParam("ChoiceZone")) : ZoneType.Battlefield;
+        // CR 123.3b - and it has to be one the AI owns.
+        return !CardLists.filter(CardLists.getValidCards(ai.getGame().getCardsIn(zone),
+                sa.getParam("Choices"), ai, sa.getHostCard(), sa),
+                CardPredicates.isOwner(ai)).isEmpty();
+    }
 
     /**
      * Stickers can only go on something their owner owns (CR 123.3b), so the AI puts one on its
@@ -50,6 +65,11 @@ public class PutStickerAi extends SpellAbilityAi {
         }
         if (sa.usesTargeting() && !chooseTarget(ai, sa)) {
             return new AiAbilityDecision(0, AiPlayDecision.TargetingFailed);
+        }
+        // An ability that chooses rather than targets can still have nothing to choose from -
+        // Park Bleater only offers creatures that entered this turn.
+        if (!hasSomethingToSticker(ai, sa)) {
+            return new AiAbilityDecision(0, AiPlayDecision.CantPlayAi);
         }
         return new AiAbilityDecision(100, AiPlayDecision.WillPlay);
     }

@@ -156,7 +156,9 @@ public class Sticker {
     public String getDescription() {
         return switch (kind) {
             case NAME -> word;
-            case ART -> "(art)";
+            // Art stickers have no rules text of their own (CR 123.9), so the only thing to
+            // tell three of them apart by is which slot they came from.
+            case ART -> "art sticker " + slot.replaceAll("[^0-9]", "");
             case ABILITY -> text != null ? text : "(ability)";
             case PT -> power + "/" + toughness;
         };

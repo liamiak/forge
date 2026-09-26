@@ -52,7 +52,14 @@ public class PutStickerEffect extends SpellAbilityEffect {
         if (sa.hasParam("Kind")) {
             sb.append(sa.getParam("Kind").toLowerCase()).append(" ");
         }
-        sb.append("sticker on ").append(StringUtils.join(getTargetCards(sa), ", "));
+        sb.append("sticker on ");
+        // Only a targeting ability knows what it will be on; the rest choose as they resolve.
+        if (sa.usesTargeting() || sa.hasParam("Defined")) {
+            sb.append(StringUtils.join(getTargetCards(sa), ", "));
+        } else {
+            sb.append(sa.getParamOrDefault("ChoiceTitle", "a permanent they own").toLowerCase()
+                    .replace("choose ", ""));
+        }
         return sb.toString();
     }
 
