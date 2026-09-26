@@ -12,4 +12,5 @@ SVar:DBSticker:DB$ PutSticker | Choices$ Permanent.nonLand+YouOwn | ChoiceTitle$
 SVar:Employees:Count$Valid Permanent.Employee+YouCtrl
 SVar:Performers:Count$Valid Permanent.Performer+YouCtrl
 SVar:Robots:Count$Valid Permanent.Robot+YouCtrl
+DeckHas:Ability$Token|Sacrifice
 Oracle:At the beginning of your end step, if you control an Employee, a Performer, or a Robot, you may get {TK} or create a Treasure token. If you control all three, you may put a sticker on a nonland permanent you own.

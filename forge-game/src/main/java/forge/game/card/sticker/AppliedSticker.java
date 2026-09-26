@@ -2,6 +2,7 @@ package forge.game.card.sticker;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import com.google.common.collect.Lists;
 
@@ -13,6 +14,7 @@ import forge.game.card.perpetual.PerpetualInterface;
 import forge.game.spellability.SpellAbility;
 import forge.game.staticability.StaticAbility;
 import forge.game.trigger.Trigger;
+import forge.game.trigger.TriggerType;
 import forge.game.trigger.TriggerHandler;
 
 /**
@@ -24,6 +26,8 @@ import forge.game.trigger.TriggerHandler;
  * instead (CR 123.6c).
  */
 public class AppliedSticker implements PerpetualInterface {
+    private static final String HAS_ATTACK_EFFECT = "HasAttackEffect";
+
     private final Sticker sticker;
     private final long timestamp;
     private final int namePosition;
@@ -88,6 +92,18 @@ public class AppliedSticker implements PerpetualInterface {
                 || !traits.getStaticAbilities().isEmpty()) {
             c.addChangedCardTraits(traits, timestamp, 0, true);
         }
+        if (grantsAttackTrigger(traits)) {
+            c.addChangedSVars(Map.of(HAS_ATTACK_EFFECT, "TRUE"), timestamp, 0);
+        }
+    }
+
+    /**
+     * The AI reads this SVar off the attacker to decide whether a creature is worth attacking
+     * with for something other than its damage, so a sticker that grants an attack trigger has
+     * to bring it along - the same way a static that grants one writes it with AddSVar$.
+     */
+    public static boolean grantsAttackTrigger(CardTraitChanges traits) {
+        return traits.getTriggers().stream().anyMatch(t -> t.getMode() == TriggerType.Attacks);
     }
 
     /** The keywords this sticker prints, which do not depend on what it is on. */

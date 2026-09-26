@@ -235,6 +235,31 @@ public class StickerAbilityTest extends AITest {
         assertTrue(match.isValid("Creature.OppCtrl+toughnessEQSTK8T", p, bear, tapAll));
     }
 
+    /**
+     * A sticker that grants an attack trigger has to bring the AI's attack hint with it, or a
+     * creature that only wants to attack for the trigger never does.
+     */
+    @Test
+    public void testAttackStickerTellsTheAiToAttack() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        Card bear = addCard("Grizzly Bears", p);
+        assertFalse("TRUE".equals(bear.getSVar("HasAttackEffect")), "nothing to attack for yet");
+
+        // Carnival Elephant Meteor's second ability sticker is "whenever this creature attacks".
+        bear.addSticker(new AppliedSticker(sticker(p, "Carnival Elephant Meteor", "STK8"),
+                game.getNextTimestamp()));
+        game.getAction().checkStateEffects(true);
+        assertEquals(bear.getSVar("HasAttackEffect"), "TRUE", "the sticker attacks for value");
+
+        // A sticker that grants something else does not claim to.
+        Card other = addCard("Grizzly Bears", p);
+        other.addSticker(new AppliedSticker(sticker(p, "Eldrazi Guacamole Tightrope", "STK7"),
+                game.getNextTimestamp()));
+        game.getAction().checkStateEffects(true);
+        assertFalse("TRUE".equals(other.getSVar("HasAttackEffect")), "haste is not an attack trigger");
+    }
+
     private int traits(Card c) {
         return c.getSpellAbilities().size() + c.getTriggers().size()
                 + c.getStaticAbilities().size() + c.getKeywords().size();

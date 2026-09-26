@@ -6,4 +6,5 @@ T:Mode$ StickerPlaced | ValidPlayer$ You | ValidCard$ Creature | StickerKind$ Ab
 SVar:TrigCounter:DB$ PutCounter | Defined$ TriggeredCard | CounterType$ P1P1 | CounterNum$ 1
 A:AB$ PutCounter | Cost$ 2 G W T | Defined$ You | CounterType$ TICKET | CounterNum$ 1 | SubAbility$ DBSticker | SpellDescription$ You get {TK}. You may put a sticker on a nonland permanent you own.
 SVar:DBSticker:DB$ PutSticker | Choices$ Permanent.nonLand+YouOwn | ChoiceTitle$ Choose a nonland permanent you own | Optional$ True
+DeckHas:Ability$Counters
 Oracle:Whenever you put an ability sticker on a creature, put a +1/+1 counter on that creature.\n{2}{G}{W}, {T}: You get {TK}. You may put a sticker on a nonland permanent you own.

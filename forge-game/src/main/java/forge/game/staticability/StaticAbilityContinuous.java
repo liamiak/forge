@@ -806,6 +806,10 @@ public final class StaticAbilityContinuous {
                         addedAbilities.addAll(granted.getAbilities());
                         addedTrigger.addAll(granted.getTriggers());
                         addedStaticAbility.addAll(granted.getStaticAbilities());
+                        if (AppliedSticker.grantsAttackTrigger(granted)) {
+                            affectedCard.addChangedSVars(Map.of("HasAttackEffect", "TRUE"),
+                                    se.getTimestamp(), stAb.getId());
+                        }
                     }
                 }
 

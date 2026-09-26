@@ -10,4 +10,5 @@ T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.S
 SVar:TrigSticker:DB$ PutSticker | Kind$ Art | Choices$ Permanent.nonLand+YouOwn | ChoiceTitle$ Choose a nonland permanent you own | Optional$ True | SubAbility$ DBSticker2
 SVar:DBSticker2:DB$ PutSticker | Kind$ Art | Choices$ Permanent.nonLand+YouOwn | ChoiceTitle$ Choose a nonland permanent you own for the second art sticker | Optional$ True
 SVar:NoZeroToughnessAI:True
+DeckHas:Ability$Graveyard
 Oracle:Flying\nRoxi's power is equal to the number of permanents you control with an art sticker plus the number of cards in your graveyard with an art sticker.\nWhen Roxi enters, distribute up to two art stickers among one or two nonland permanents you own.
