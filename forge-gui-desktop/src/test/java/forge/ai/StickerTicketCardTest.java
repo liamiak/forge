@@ -15,6 +15,7 @@ import forge.game.card.sticker.AppliedSticker;
 import forge.game.card.sticker.Sticker;
 import forge.game.card.sticker.StickerKind;
 import forge.game.card.sticker.StickerSheet;
+import forge.game.phase.PhaseType;
 import forge.game.player.Player;
 import forge.game.ability.ApiType;
 import forge.game.ability.effects.CharmEffect;
@@ -460,6 +461,12 @@ public class StickerTicketCardTest extends AITest {
         game.getAction().checkStateEffects(true);
         // Everything addCard puts down counts as having entered on turn one, so move off it.
         playUntilNextTurn(game);
+        // An ability that costs mana is only worth it once the mana has nothing else to do, so
+        // ask in the phase where the AI would actually use it - this test is about the pool.
+        // Not moveToMain2: devModeSet resets the turn counter to 1 unless it is given one, which
+        // would make everything addCard put down count as having entered this turn again.
+        game.getPhaseHandler().devModeSet(PhaseType.MAIN2, p, game.getPhaseHandler().getTurn());
+        game.getAction().checkStateEffects(true);
 
         SpellAbility put = bleater.getSpellAbilities().stream()
                 .filter(a -> a.getApi() == ApiType.PutSticker).findFirst().orElseThrow();

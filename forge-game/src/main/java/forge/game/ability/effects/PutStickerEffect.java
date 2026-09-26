@@ -166,7 +166,6 @@ public class PutStickerEffect extends SpellAbilityEffect {
             runParams.put(AbilityKey.Player, owner);
             runParams.put(AbilityKey.StickerKind, chosen.getKind());
             game.getTriggerHandler().runTrigger(TriggerType.StickerPlaced, runParams, false);
-            game.getTriggerHandler().runWaitingTriggers();
         }
     }
 }

@@ -583,6 +583,12 @@ public class GameAction {
             c.cleanupExiledWith();
         }
 
+        // Now that the card is in its new zone: a sticker it kept is out of the pool, and one it
+        // dropped on the way to a hidden zone is back in it (CR 123.5).
+        if (c.isStickered() || copied.isStickered()) {
+            Card.refreshSheetViews(copied.getOwner());
+        }
+
         // play the change zone sound
         game.fireEvent(new GameEventCardChangeZone(c, zoneFrom, zoneTo));
 

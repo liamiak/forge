@@ -232,4 +232,26 @@ public class StickerAiChoiceTest extends AITest {
         assertEquals(amb.getNetPower(), 6, "1 + 5 power across the stickers it controls");
         assertEquals(amb.getNetToughness(), 7, "4 + 3 toughness");
     }
+
+    /**
+     * Finishing Move is removal with a sticker attached, and the sticker is the part that may find
+     * nothing to do. The AI's answer for the sticker becomes the answer for the whole spell, so a
+     * player with no sheets at all must still be willing to cast it for the damage.
+     */
+    @Test
+    public void testAiCastsASpellWhoseStickerHasNowhereToGo() {
+        Game game = initAndCreateGame();
+        Player ai = game.getPhaseHandler().getPlayerTurn();
+        Player opp = game.getPlayers().stream().filter(p -> p != ai).findFirst().orElseThrow();
+        addCard("Colossal Dreadmaw", ai);
+        addCard("Grizzly Bears", opp);
+        game.getAction().checkStateEffects(true);
+
+        Card move = addCardToZone("Finishing Move", ai, ZoneType.Hand);
+        SpellAbility spell = move.getFirstSpellAbility();
+        spell.setActivatingPlayer(ai);
+        assertTrue(StickerSheet.getAvailableStickers(ai).isEmpty(), "no sheets, so no stickers");
+        assertTrue(SpellApiToAi.Converter.get(spell).canPlayWithSubs(ai, spell).willingToPlay(),
+                "6 damage is worth casting whether or not a sticker comes with it");
+    }
 }

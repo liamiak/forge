@@ -9,11 +9,12 @@ import forge.ai.ComputerUtilCard;
 import forge.ai.SpellAbilityAi;
 import forge.game.ability.effects.PutStickerEffect;
 import forge.game.card.Card;
-import forge.game.card.CardCollection;
 import forge.game.card.CardLists;
 import forge.game.card.CardPredicates;
 import forge.game.card.sticker.Sticker;
 import forge.game.card.sticker.StickerSheet;
+import forge.game.phase.PhaseHandler;
+import forge.game.phase.PhaseType;
 import forge.game.player.Player;
 import forge.game.player.PlayerActionConfirmMode;
 import forge.game.spellability.SpellAbility;
@@ -127,26 +128,8 @@ public class PutStickerAi extends SpellAbilityAi {
     }
 
     /**
-     * Stickers can only go on something their owner owns (CR 123.3b), so the AI puts one on its
-     * own best legal permanent.
-     */
-    private static boolean chooseTarget(Player ai, SpellAbility sa) {
-        sa.resetTargets();
-        // CR 123.3b - only its owner's objects are ever legal, so start from those; and
-        // getTargetableCards has already applied canTarget.
-        CardCollection options = CardLists.getTargetableCards(
-                ai.getCardsIn(sa.getTargetRestrictions().getZone()), sa);
-        Card best = bestTarget(ai, sa, options);
-        if (best == null) {
-            return false;
-        }
-        sa.getTargets().add(best);
-        return true;
-    }
-
-    /**
-     * Most of these cards choose rather than target - "a nonland permanent you own", not "target
-     * nonland permanent you own" - and that choice arrives here.
+     * These cards choose rather than target - "a nonland permanent you own", not "target nonland
+     * permanent you own" - so the choice arrives here rather than through target selection.
      */
     @Override
     protected Card chooseSingleCard(Player ai, SpellAbility sa, Iterable<Card> options, boolean isOptional,
@@ -154,13 +137,22 @@ public class PutStickerAi extends SpellAbilityAi {
         return bestTarget(ai, sa, options);
     }
 
+    /**
+     * A sticker is permanent upside that nothing can take away, so there is never a reason to buy
+     * one while the mana could still be doing something else. An ability that costs mana therefore
+     * waits until the AI's second main phase, the same way the ticket abilities on Prize Wall,
+     * Blorbian Buddy and Ticket Turbotubes wait with {@code AILogic$ AtOppEOT}.
+     */
+    @Override
+    protected boolean checkPhaseRestrictions(final Player ai, final SpellAbility sa, final PhaseHandler ph) {
+        return sa.getPayCosts() == null || !sa.getPayCosts().hasManaCost()
+                || !ph.isPlayerTurn(ai) || !ph.getPhase().isBefore(PhaseType.MAIN2);
+    }
+
     @Override
     protected AiAbilityDecision checkApiLogic(final Player ai, final SpellAbility sa) {
         if (!StickerSheet.hasAvailableSticker(ai)) {
             return new AiAbilityDecision(0, AiPlayDecision.CantPlayAi);
-        }
-        if (sa.usesTargeting() && !chooseTarget(ai, sa)) {
-            return new AiAbilityDecision(0, AiPlayDecision.TargetingFailed);
         }
         // An ability that chooses rather than targets can still have nothing to choose from -
         // Park Bleater only offers creatures that entered this turn.
@@ -171,23 +163,7 @@ public class PutStickerAi extends SpellAbilityAi {
     }
 
     @Override
-    public AiAbilityDecision chkDrawback(final Player ai, final SpellAbility sa) {
-        // A sticker is worth taking even when the rest of the ability was the point, so a
-        // drawback check that cannot find a target still lets the parent resolve.
-        if (!StickerSheet.hasAvailableSticker(ai)) {
-            return new AiAbilityDecision(0, AiPlayDecision.WillPlay);
-        }
-        if (sa.usesTargeting()) {
-            chooseTarget(ai, sa);
-        }
-        return new AiAbilityDecision(100, AiPlayDecision.WillPlay);
-    }
-
-    @Override
     protected AiAbilityDecision doTriggerNoCost(Player ai, SpellAbility sa, boolean mandatory) {
-        if (sa.usesTargeting() && !chooseTarget(ai, sa) && !mandatory) {
-            return new AiAbilityDecision(0, AiPlayDecision.TargetingFailed);
-        }
         return new AiAbilityDecision(100, AiPlayDecision.WillPlay);
     }
 

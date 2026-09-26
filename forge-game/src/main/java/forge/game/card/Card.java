@@ -2030,6 +2030,14 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
     }
 
     public final void addChangedSVars(Map<String, String> map, long timestamp, long staticId) {
+        // One static can have more than one reason to add an SVar - AddSVar$ and a sticker that
+        // brings HasAttackEffect with it - and they share this key, so merge rather than replace.
+        Map<String, String> existing = this.changedSVars.get(timestamp, staticId);
+        if (existing != null && !existing.isEmpty()) {
+            Map<String, String> merged = Maps.newHashMap(existing);
+            merged.putAll(map);
+            map = merged;
+        }
         this.changedSVars.put(timestamp, staticId, map);
     }
     public final void removeChangedSVars(long timestamp, long staticId) {
@@ -4642,10 +4650,20 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
      */
     private void updateStickersForView() {
         view.updateStickers(this);
-        if (getOwner() != null) {
-            for (Card sheet : getOwner().getCardsIn(ZoneType.StickerSheets)) {
-                sheet.getView().updateStickers(sheet);
-            }
+        refreshSheetViews(getOwner());
+    }
+
+    /**
+     * Refreshes what each of a player's sticker sheets says is still free. Which stickers are
+     * available depends on where their stickered cards are, so this has to run once a card has
+     * landed in its new zone - not while it is between zones, where nothing can see it.
+     */
+    public static void refreshSheetViews(final Player p) {
+        if (p == null) {
+            return;
+        }
+        for (Card sheet : p.getCardsIn(ZoneType.StickerSheets)) {
+            sheet.view.updateStickers(sheet);
         }
     }
 

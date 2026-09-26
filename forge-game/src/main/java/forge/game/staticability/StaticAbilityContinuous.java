@@ -801,6 +801,11 @@ public final class StaticAbilityContinuous {
                 List<Trigger> addedTrigger = Lists.newArrayList();
                 List<StaticAbility> addedStaticAbility = Lists.newArrayList();
                 if (stickerAbilities != null) {
+                    // Not getSpellAbilityForStaticAbility and friends, which the paths below use
+                    // to cache what they build: those resolve the ability's SVars against the
+                    // granting static, and a sticker's live on the sheet it came from, so a cached
+                    // one builds, runs and reads 0. Bounded to one affected card each for Pin
+                    // Collection and Clandestine Chameleon.
                     for (AppliedSticker applied : stickerAbilities) {
                         CardTraitChanges granted = applied.getGrantedTraits(affectedCard);
                         addedAbilities.addAll(granted.getAbilities());

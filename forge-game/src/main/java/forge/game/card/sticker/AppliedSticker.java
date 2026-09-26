@@ -108,8 +108,10 @@ public class AppliedSticker implements PerpetualInterface {
 
     /** The keywords this sticker prints, which do not depend on what it is on. */
     public List<String> getGrantedKeywords() {
-        return sticker.getKeywords() == null ? List.of()
-                : Arrays.asList(sticker.getKeywords().split(","));
+        if (sticker.getKeywords() == null) {
+            return List.of();
+        }
+        return Arrays.stream(sticker.getKeywords().split(",")).map(String::trim).toList();
     }
 
     /**

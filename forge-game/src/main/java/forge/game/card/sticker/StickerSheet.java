@@ -1,6 +1,7 @@
 package forge.game.card.sticker;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
@@ -25,9 +26,14 @@ import forge.game.keyword.KeywordInterface;
  */
 public final class StickerSheet {
     private static final String KEYWORD = "StickerSheet:";
-    /** The zones a sticker survives in - CR 123.5 drops it anywhere hidden. */
-    private static final EnumSet<ZoneType> PUBLIC_ZONES = EnumSet.of(ZoneType.Battlefield,
-            ZoneType.Graveyard, ZoneType.Exile, ZoneType.Command, ZoneType.Stack);
+    /**
+     * The zones a sticker survives in - CR 123.5 drops it anywhere hidden. Derived from the same
+     * test {@code GameAction.changeZone} keeps stickers by, so the two cannot drift: listing them
+     * by hand left Merged, Ante and Junkyard out, and a sticker nobody can see is a sticker the
+     * pool hands out twice.
+     */
+    private static final EnumSet<ZoneType> PUBLIC_ZONES = EnumSet.copyOf(
+            Arrays.stream(ZoneType.values()).filter(z -> !z.isHidden()).toList());
 
     private StickerSheet() {
     }
