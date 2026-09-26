@@ -75,6 +75,8 @@ import java.util.*;
 import java.util.Map.Entry;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static java.lang.Math.max;
 
@@ -4634,8 +4636,13 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
 
     /**
      * CR 123.6c - rebuilds the name from the card's own name plus every name sticker on it, in
-     * timestamp order. Each sticker's word goes after the number of words that preceded it when
-     * it was placed, or at the end if the name is now shorter than that.
+     * timestamp order.
+     * <p>
+     * CR 123.6a: a blank line is not a word of the name, so it never counts towards a sticker's
+     * position. A card printed with one has somewhere the sticker goes - that is what the blank
+     * is for - so each sticker fills the leftmost blank still empty, and only once there are
+     * none left does it go after the number of words chosen when it was placed (or at the end,
+     * if the name is now shorter than that). Blanks nobody has stickered stay as they are.
      */
     public final void recomputeStickerName() {
         List<AppliedSticker> nameStickers = new ArrayList<>();
@@ -4649,25 +4656,38 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         }
         nameStickers.sort(Comparator.comparingLong(AppliedSticker::getTimestamp));
 
-        List<String> words = new ArrayList<>();
-        String base = currentState.getName();
-        if (StringUtils.isNotBlank(base)) {
-            Collections.addAll(words, base.split(" "));
-        }
+        String name = StringUtils.defaultString(currentState.getName());
         for (AppliedSticker s : nameStickers) {
-            insertWord(words, s.getSticker().getWord(), s.getNamePosition());
+            name = addStickerWord(name, s.getSticker().getWord(), s.getNamePosition());
         }
-        addChangedName(String.join(" ", words),
-                false, nameStickers.get(nameStickers.size() - 1).getTimestamp(), 0);
+        addChangedName(name, false, nameStickers.get(nameStickers.size() - 1).getTimestamp(), 0);
     }
 
+    /** A run of underscores standing in for a word the card does not have - CR 123.6a. */
+    private static final Pattern NAME_BLANK = Pattern.compile("_{2,}");
+
     /**
-     * CR 123.6b/c - a name sticker's word goes after that many of the words already there, or at
-     * the end if the name is now shorter than that. Shared with the prompt that asks a player
-     * where to put it, so the preview and the name they end up with are built the same way.
+     * The name that results from putting one name sticker on the given name. Shared with the
+     * prompt that asks a player where to put it, so the preview and the name they end up with
+     * are built the same way.
      */
-    public static void insertWord(final List<String> words, final String word, final int position) {
+    public static String addStickerWord(final String name, final String word, final int position) {
+        Matcher blank = NAME_BLANK.matcher(name);
+        if (blank.find()) {
+            return name.substring(0, blank.start()) + word + name.substring(blank.end());
+        }
+        List<String> words = new ArrayList<>();
+        if (StringUtils.isNotBlank(name)) {
+            Collections.addAll(words, name.split(" "));
+        }
         words.add(Math.min(position, words.size()), word);
+        return String.join(" ", words);
+    }
+
+    /** Whether a name sticker put on this card now would fill a blank rather than be placed. */
+    public final boolean stickerWouldFillBlank() {
+        String name = getName();
+        return StringUtils.isNotEmpty(name) && NAME_BLANK.matcher(name).find();
     }
 
     private List<PerpetualInterface> perpetual = new ArrayList<>();

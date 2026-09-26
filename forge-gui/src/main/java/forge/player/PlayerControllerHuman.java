@@ -1416,21 +1416,18 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
 
     @Override
     public int chooseStickerNamePosition(Sticker sticker, Card target) {
-        if (StringUtils.isBlank(target.getName())) {
+        // CR 123.6a - a blank is not a word, so there is nothing to choose: the word goes there.
+        if (StringUtils.isBlank(target.getName()) || target.stickerWouldFillBlank()) {
             return 0;
         }
-        // CR 123.6b - offer every name the sticker could produce and let them pick one.
-        List<String> words = Lists.newArrayList(target.getName().split(" "));
+        // CR 123.6b - otherwise offer every name the sticker could produce and let them pick.
+        int words = target.getName().split(" ").length;
         List<Integer> positions = Lists.newArrayList();
-        for (int at = 0; at <= words.size(); at++) {
+        for (int at = 0; at <= words; at++) {
             positions.add(at);
         }
         Integer chosen = getGui().one(localizer.getMessage("lblChooseStickerNamePosition"), positions,
-                at -> {
-                    List<String> parts = Lists.newArrayList(words);
-                    Card.insertWord(parts, sticker.getWord(), at);
-                    return String.join(" ", parts);
-                });
+                at -> Card.addStickerWord(target.getName(), sticker.getWord(), at));
         return chosen == null ? 0 : chosen;
     }
 

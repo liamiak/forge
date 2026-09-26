@@ -68,6 +68,41 @@ public class StickerApplyTest extends AITest {
         assertTrue(bear.isStickered(), "CR 123.4 - the bear is now a stickered object");
     }
 
+    /**
+     * CR 123.6a - a blank line is not a word, so a sticker put on a card printed with one fills
+     * it rather than being placed among the words, and blanks nobody stickered stay put.
+     */
+    @Test
+    public void testNameStickerFillsABlank() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        List<Sticker> stickers = sheet(p, "Eldrazi Guacamole Tightrope");
+
+        Card ship = addCard("_____ _____ Rocketship", p);
+        ship.addSticker(new AppliedSticker(nth(stickers, StickerKind.NAME, 0), game.getNextTimestamp(), 0));
+        assertEquals(ship.getName(), "Eldrazi _____ Rocketship",
+                "the first blank is filled, the second is still waiting");
+
+        ship.addSticker(new AppliedSticker(nth(stickers, StickerKind.NAME, 1), game.getNextTimestamp(), 0));
+        assertEquals(ship.getName(), "Eldrazi Guacamole Rocketship", "and then there are none left");
+
+        // A third word has no blank to fill, so it is placed among the words as usual.
+        ship.addSticker(new AppliedSticker(nth(stickers, StickerKind.NAME, 2), game.getNextTimestamp(), 3));
+        assertEquals(ship.getName(), "Eldrazi Guacamole Rocketship Tightrope");
+    }
+
+    /** A blank inside a word is still a blank - CR 123.6a does not say it stands alone. */
+    @Test
+    public void testNameStickerFillsABlankInsideAWord() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        Card saurus = addCard("_____-o-saurus", p);
+        saurus.addSticker(new AppliedSticker(
+                first(sheet(p, "Eldrazi Guacamole Tightrope"), StickerKind.NAME),
+                game.getNextTimestamp(), 0));
+        assertEquals(saurus.getName(), "Eldrazi-o-saurus");
+    }
+
     /** CR 123.6b - the word can go after any number of the words already in the name. */
     @Test
     public void testNameStickerInTheMiddleAndAtTheEnd() {
